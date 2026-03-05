@@ -11,7 +11,11 @@
   <style>
     body { margin: 0; padding: 0; overflow: hidden; }
     #map { height: 100vh; width: 100vw; }
-    
+    path.leaflet-interactive {
+  outline: none;
+  /* Helps mobile browsers understand these are tappable */
+  cursor: pointer;
+}
     /* DEFAULT DESKTOP PANEL */
     .control-panel {
       position: absolute;
@@ -261,6 +265,39 @@ function applyStatus() {
 }
 
 loadStreets();
+streetLayer = L.geoJSON(geojson, {
+  style: feature => {
+    const state = streetStates[feature.properties.id];
+    return { 
+      color: getColor(state), 
+      weight: 8,         // Increased from 5 to 8 for easier tapping
+      opacity: 0.6,      // Slightly transparent makes it look cleaner
+      lineJoin: 'round'  // Makes corners smoother for touch
+    };
+  },
+  onEachFeature: (feature, layer) => {
+    const id = feature.properties.id;
+    streetLayersById[id] = layer;
+
+    // Visual feedback for touch
+    layer.on("mousedown touchstart", () => {
+      layer.setStyle({ weight: 12, opacity: 1 }); // Briefly thickens when touched
+    });
+
+    layer.on("click", () => {
+      selectedLayer = layer;
+      const state = streetStates[id] || { cars:false, ped:false };
+      document.getElementById("carsCheck").checked = state.cars;
+      if (isPedestrianUnlocked) {
+        document.getElementById("pedCheck").checked = state.ped;
+      }
+      document.getElementById("panel").style.display = "block";
+      
+      // Reset style after selection
+      layer.setStyle({ weight: 8, opacity: 0.8 });
+    });
+  }
+}).addTo(map);
 </script>
 </body>
 </html>
