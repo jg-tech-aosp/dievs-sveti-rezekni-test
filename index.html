@@ -46,12 +46,11 @@
       border: 1px solid var(--border); border-radius: 14px;
       width: 44px; height: 44px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      box-shadow: var(--shadow); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      box-shadow: var(--shadow); backdrop-filter: blur(12px);
       font-size: 1.2rem; transition: transform 0.2s;
     }
-    .theme-toggle:active { transform: scale(0.9); }
 
-    /* Responsive Control Panel */
+    /* Panel Layout */
     .control-panel {
       position: absolute; 
       z-index: 1000;
@@ -60,20 +59,18 @@
       border: 1px solid var(--border);
       box-shadow: var(--shadow);
       color: var(--text-main);
-      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
       display: flex; flex-direction: column;
+      max-height: 85vh; /* Prevents panel from leaving screen */
     }
 
-    /* Desktop View: Anchored Bottom-Left */
     @media (min-width: 601px) {
       .control-panel {
         bottom: 30px; left: 30px;
-        width: 320px; border-radius: 24px;
+        width: 340px; border-radius: 24px;
         padding: 24px;
       }
     }
 
-    /* Mobile View: Centered Bottom Sheet */
     @media (max-width: 600px) {
       .control-panel {
         bottom: 20px; left: 5%; right: 5%;
@@ -84,72 +81,88 @@
 
     h2 { margin: 0 0 16px 0; font-weight: 800; font-size: 1.25rem; letter-spacing: -0.02em; }
 
+    /* Scrollable Sections */
+    .panel-content {
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    /* Custom Scrollbar for the panel */
+    .panel-content::-webkit-scrollbar { width: 4px; }
+    .panel-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
     .option-card {
       display: flex; align-items: center; padding: 14px;
       margin: 6px 0; background: var(--input-bg);
       border-radius: 16px; cursor: pointer;
-      border: 1px solid transparent; transition: border 0.2s;
     }
-    .option-card:hover { border-color: var(--accent); }
 
-    input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent); margin-right: 14px; cursor: pointer; }
+    input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); margin-right: 14px; }
+
+    /* The Fix: Scrollable Payment Area */
+    #paypal-button-container {
+      margin-top: 12px;
+      max-height: 220px; /* Limits the height of the card entry area */
+      overflow-y: auto;
+      border-radius: 12px;
+      padding: 4px;
+    }
 
     .btn-apply {
       margin-top: 18px; width: 100%; padding: 16px;
       background: var(--accent); color: white; border: none;
       border-radius: 16px; cursor: pointer; font-weight: 700; font-size: 1rem;
+      flex-shrink: 0; /* Ensures button is always visible */
     }
 
     .promo-group { display: flex; gap: 8px; margin-top: 12px; }
     .promo-group input {
       flex: 1; background: var(--input-bg); border: 1px solid var(--border);
-      padding: 12px; border-radius: 12px; color: var(--text-main); outline: none; font-family: inherit;
+      padding: 12px; border-radius: 12px; color: var(--text-main); outline: none;
     }
 
-    .disabled-feature { opacity: 0.4; filter: grayscale(0.5); }
-    .footer-actions { margin-top: 15px; display: flex; justify-content: center; }
-    .btn-reset { font-size: 11px; opacity: 0.4; background: none; border: none; color: var(--text-main); cursor: pointer; text-decoration: underline; }
+    .disabled-feature { opacity: 0.5; margin-top: 15px; border-top: 1px solid var(--border); padding-top: 15px; }
+    .btn-reset { font-size: 11px; opacity: 0.4; background: none; border: none; color: var(--text-main); cursor: pointer; text-decoration: underline; margin: 15px auto 0; display: block; }
   </style>
 </head>
 <body>
 
-<button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle Theme">🌙</button>
-
+<button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
 <div id="map"></div>
 
 <div class="control-panel" id="panel" style="display:none;">
   <h2>Ielas Statuss</h2>
   
-  <label class="option-card">
-    <input type="checkbox" id="carsCheck">
-    <span style="font-weight: 600;">🚗 Netīrs braucējiem</span>
-  </label>
-  
-  <div id="pedSection" class="disabled-feature">
+  <div class="panel-content">
     <label class="option-card">
-      <input type="checkbox" id="pedCheck" disabled>
-      <span style="font-weight: 600;">🚶 Netīrs gājējiem</span>
+      <input type="checkbox" id="carsCheck">
+      <span style="font-weight: 600;">🚗 Netīrs braucējiem</span>
     </label>
     
-    <div id="pay-notice">
-      <div class="promo-group">
-        <input type="text" id="promoInput" placeholder="Kods?">
-        <button onclick="checkPromo()" style="padding: 0 16px; border-radius: 12px; border: none; background: var(--text-main); color: var(--bg-panel); cursor:pointer; font-weight:600;">Go</button>
+    <div id="pedSection" class="disabled-feature">
+      <label class="option-card">
+        <input type="checkbox" id="pedCheck" disabled>
+        <span style="font-weight: 600;">🚶 Netīrs gājējiem</span>
+      </label>
+      
+      <div id="pay-notice">
+        <div class="promo-group">
+          <input type="text" id="promoInput" placeholder="Slepenais kods?">
+          <button onclick="checkPromo()" style="padding: 0 16px; border-radius: 12px; border: none; background: var(--text-main); color: var(--bg-panel); font-weight:600; cursor:pointer;">Go</button>
+        </div>
+        <p style="font-size: 0.75rem; margin: 12px 0; text-align: center; opacity: 0.7;">Piekļuve gājēju datiem: 0.67€</p>
+        <div id="paypal-button-container"></div>
       </div>
-      <p style="font-size: 0.75rem; margin: 12px 0; text-align: center; color: var(--text-main); opacity: 0.8;">Premium funkcija: 0.67€</p>
-      <div id="paypal-button-container"></div>
     </div>
   </div>
 
-  <button onclick="applyStatus()" class="btn-apply">Saglabāt izmaiņas</button>
-  <div class="footer-actions">
-    <button onclick="relock()" class="btn-reset">Atiestatīt iestatījumus</button>
-  </div>
+  <button onclick="applyStatus()" class="btn-apply">Saglabāt</button>
+  <button onclick="relock()" class="btn-reset">Atiestatīt pirkumu</button>
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-// --- FIREBASE & STATE ---
+// --- CORE CONFIG ---
 const firebaseConfig = {
   apiKey: "AIzaSyA0dMTX1y7CYZBLyd4lgQDkR8nJ7utRvIc",
   authDomain: "rezekne-app.firebaseapp.com",
@@ -169,9 +182,8 @@ let streetStates = {};
 let streetLayersById = {};
 let selectedLayer = null;
 
-// --- MAP & THEMING ---
+// --- MAP & THEME ---
 const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([56.5100, 27.3400], 14);
-
 const tileLayers = {
   light: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'),
   dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png')
@@ -186,10 +198,7 @@ function setTheme(theme) {
   currentTheme = theme;
 }
 
-function toggleTheme() {
-  setTheme(currentTheme === 'light' ? 'dark' : 'light');
-}
-
+function toggleTheme() { setTheme(currentTheme === 'light' ? 'dark' : 'light'); }
 setTheme(currentTheme);
 
 // --- APP LOGIC ---
@@ -201,17 +210,17 @@ function getColor(state) {
   return "#3b82f6";
 }
 
-function checkPromo() {
-  if (document.getElementById("promoInput").value === "BURGER67") unlockPedestrianFeature();
-  else alert("Kods nav pareizs");
-}
-
 function unlockPedestrianFeature() {
   isPedestrianUnlocked = true;
   localStorage.setItem('pedestrian_unlocked', 'true');
   document.getElementById("pedCheck").disabled = false;
   document.getElementById("pay-notice").style.display = "none";
   document.getElementById("pedSection").classList.remove("disabled-feature");
+}
+
+function checkPromo() {
+  if (document.getElementById("promoInput").value === "BURGER67") unlockPedestrianFeature();
+  else alert("Nepareizs kods!");
 }
 
 if (isPedestrianUnlocked) setTimeout(unlockPedestrianFeature, 100);
@@ -228,7 +237,6 @@ async function loadStreets() {
   try {
     const res = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: query });
     const data = await res.json();
-    
     L.geoJSON(data.elements.map(el => ({
       type: "Feature",
       geometry: { type: "LineString", coordinates: el.geometry.map(g => [g.lon, g.lat]) },
