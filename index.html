@@ -1015,7 +1015,8 @@ function filterText(text) {
   if (!text) return text;
   let filtered = text;
   BANNED_WORDS.forEach(word => {
-    const regex = new RegExp(word, 'gi');
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
     filtered = filtered.replace(regex, '*'.repeat(word.length));
   });
   return filtered;
