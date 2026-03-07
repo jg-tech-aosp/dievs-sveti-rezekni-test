@@ -378,7 +378,10 @@
 <div class="feed-panel" id="feed-panel">
   <div class="feed-header">
     <span>💬 Kopienas ziņas</span>
-    <button onclick="toggleFeed()" style="background:none;border:none;color:var(--text-main);font-size:1rem;cursor:pointer;opacity:0.5;">✕</button>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button onclick="refreshFeed()" title="Atjaunot" style="background:none;border:none;color:var(--text-main);font-size:1rem;cursor:pointer;opacity:0.5;">🔄</button>
+      <button onclick="toggleFeed()" style="background:none;border:none;color:var(--text-main);font-size:1rem;cursor:pointer;opacity:0.5;">✕</button>
+    </div>
   </div>
   <div class="feed-compose" id="feed-compose">
     <textarea id="feed-text" rows="3" placeholder="Ko jauns Rēzeknē?"></textarea>
@@ -735,7 +738,39 @@ async function deletePost(key) {
   }
 }
 
-// Listen for feed updates in realtime
+function refreshFeed() {
+  database.ref('feed').orderByChild('timestamp').once('value', (snapshot) => {
+    const list = document.getElementById('feed-list');
+    const empty = document.getElementById('feed-empty');
+    const val = snapshot.val();
+    if (!val) {
+      list.innerHTML = '';
+      list.appendChild(empty);
+      empty.style.display = 'block';
+      return;
+    }
+    const posts = Object.entries(val).reverse();
+    empty.style.display = 'none';
+    list.innerHTML = '';
+    posts.forEach(([key, post]) => {
+      const item = document.createElement('div');
+      item.className = 'feed-item';
+      const isOwner = auth.currentUser && (auth.currentUser.uid === post.uid || userProfile?.role === 'admin');
+      item.innerHTML = `
+        <div class="feed-item-header">
+          <span class="feed-item-user">${post.username}</span>
+          <span class="feed-item-time">${timeAgo(post.timestamp)}</span>
+        </div>
+        ${post.text ? `<div class="feed-item-text">${post.text}</div>` : ''}
+        ${post.photo ? `<img class="feed-item-img" src="${post.photo}" alt="foto">` : ''}
+        ${isOwner ? `<button class="feed-item-delete" onclick="deletePost('${key}')">Dzēst</button>` : ''}
+      `;
+      list.appendChild(item);
+    });
+  });
+}
+
+
 database.ref('feed').orderByChild('timestamp').on('value', (snapshot) => {
   const list = document.getElementById('feed-list');
   const empty = document.getElementById('feed-empty');
