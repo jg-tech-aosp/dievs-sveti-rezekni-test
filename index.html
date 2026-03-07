@@ -741,17 +741,13 @@ async function deletePost(key) {
 function refreshFeed() {
   database.ref('feed').orderByChild('timestamp').once('value', (snapshot) => {
     const list = document.getElementById('feed-list');
-    const empty = document.getElementById('feed-empty');
     const val = snapshot.val();
+    list.innerHTML = '';
     if (!val) {
-      list.innerHTML = '';
-      list.appendChild(empty);
-      empty.style.display = 'block';
+      list.innerHTML = '<div class="feed-empty">Nav ziņu. Esi pirmais!</div>';
       return;
     }
     const posts = Object.entries(val).reverse();
-    empty.style.display = 'none';
-    list.innerHTML = '';
     posts.forEach(([key, post]) => {
       const item = document.createElement('div');
       item.className = 'feed-item';
@@ -808,3 +804,4 @@ loadStreets();
 </script>
 </body>
 </html>
+
