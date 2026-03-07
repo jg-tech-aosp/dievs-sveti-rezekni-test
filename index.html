@@ -391,6 +391,7 @@
     <button class="auth-btn" id="user-tag" onclick="openSettings()">Ielādē...</button>
     <button class="auth-btn" onclick="handleLogout()">Iziet</button>
     <button class="auth-btn" id="dm-inbox-btn" onclick="openInbox()" style="position:relative;">📬 <span id="dm-unread-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#FF3B30;color:white;border-radius:50%;width:16px;height:16px;font-size:0.6rem;line-height:16px;text-align:center;">!</span></button>
+    <button class="auth-btn" onclick="openUserSearch()">🔍</button>
     <button class="auth-btn" id="admin-panel-btn" style="display:none; background:#FF3B30; color:white;" onclick="openAdminDashboard()">Admin ⚙️</button>
   </div>
 </div>
@@ -478,6 +479,20 @@
       <button onclick="closeFollowList()" class="btn-small">X</button>
     </div>
     <div id="follow-list-items" style="overflow-y:auto; flex:1; margin-top:12px; scrollbar-width:thin;"></div>
+  </div>
+</div>
+
+<!-- User Search Modal -->
+<div class="modal-overlay" id="user-search-modal" style="display:none;">
+  <div class="modal-card" style="max-height:70vh; display:flex; flex-direction:column; overflow:hidden; width:340px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+      <h2 style="margin:0;">🔍 Meklēt lietotājus</h2>
+      <button onclick="closeUserSearch()" class="btn-small">X</button>
+    </div>
+    <input type="text" id="user-search-input" placeholder="Ievadi lietotājvārdu..." oninput="handleUserSearch()" style="margin-top:12px; padding:10px 14px; border-radius:12px; border:1px solid var(--border); background:var(--input-bg); color:var(--text-main); font-family:'Inter',sans-serif; flex-shrink:0;">
+    <div id="user-search-results" style="overflow-y:auto; flex:1; margin-top:10px; scrollbar-width:thin;">
+      <div style="opacity:0.4;font-size:0.85rem;padding:10px;">Raksti, lai meklētu...</div>
+    </div>
   </div>
 </div>
 
@@ -1367,6 +1382,48 @@ async function openFollowList(type) {
 }
 
 function closeFollowList() { document.getElementById('follow-list-modal').style.display = 'none'; }
+
+// --- USER SEARCH ---
+function openUserSearch() {
+  document.getElementById('user-search-modal').style.display = 'flex';
+  document.getElementById('user-search-input').value = '';
+  document.getElementById('user-search-results').innerHTML = '<div style="opacity:0.4;font-size:0.85rem;padding:10px;">Raksti, lai meklētu...</div>';
+  setTimeout(() => document.getElementById('user-search-input').focus(), 100);
+}
+
+function closeUserSearch() { document.getElementById('user-search-modal').style.display = 'none'; }
+
+async function handleUserSearch() {
+  const query = document.getElementById('user-search-input').value.trim().toLowerCase();
+  const results = document.getElementById('user-search-results');
+  if (query.length < 2) {
+    results.innerHTML = '<div style="opacity:0.4;font-size:0.85rem;padding:10px;">Raksti, lai meklētu...</div>';
+    return;
+  }
+  results.innerHTML = '<div style="opacity:0.4;font-size:0.85rem;padding:10px;">Meklē...</div>';
+  const snap = await database.ref('users').once('value');
+  const val = snap.val();
+  if (!val) { results.innerHTML = '<div style="opacity:0.4;font-size:0.85rem;padding:10px;">Nav rezultātu.</div>'; return; }
+  const matches = Object.entries(val)
+    .filter(([, u]) => u.username && u.username.toLowerCase().includes(query))
+    .slice(0, 10);
+  if (matches.length === 0) { results.innerHTML = '<div style="opacity:0.4;font-size:0.85rem;padding:10px;">Nav rezultātu.</div>'; return; }
+  results.innerHTML = '';
+  matches.forEach(([uid, u]) => {
+    const item = document.createElement('div');
+    item.style.cssText = 'padding:10px 12px; cursor:pointer; border-radius:12px; transition:0.15s; display:flex; align-items:center; gap:10px;';
+    item.innerHTML = `
+      <div style="flex:1;">
+        <div style="font-weight:700;">${u.username}${u.isPremium ? ' ✨' : ''}</div>
+        ${u.bio ? `<div style="font-size:0.78rem;opacity:0.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;">${u.bio}</div>` : ''}
+      </div>
+    `;
+    item.onmouseover = () => item.style.background = 'var(--input-bg)';
+    item.onmouseout = () => item.style.background = '';
+    item.onclick = () => { closeUserSearch(); openProfile(uid, u.username); };
+    results.appendChild(item);
+  });
+}
 
 function startDMFromProfile() {
   if (!currentProfileUID) return;
