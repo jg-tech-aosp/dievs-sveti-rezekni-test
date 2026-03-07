@@ -401,14 +401,14 @@
     <button class="auth-btn" onclick="openUserSearch()">🔍</button>
     <button class="auth-btn" id="admin-panel-btn" style="display:none; background:#FF3B30; color:white;" onclick="openAdminDashboard()">Admin ⚙️</button>
   </div>
+  <div class="search-box" style="width:220px;">
+    <input type="text" id="streetSearch" placeholder="Meklēt ielu..." oninput="handleSearch()">
+    <div id="search-results" class="search-results"></div>
+  </div>
+  <button class="auth-btn" onclick="findMyLocation()" title="Mana atrašanās vieta">📍</button>
 </div>
 
 <div class="map-controls">
-  <div class="search-box">
-    <input type="text" id="streetSearch" placeholder="Meklēt ielu Rēzeknē..." oninput="handleSearch()">
-    <div id="search-results" class="search-results"></div>
-  </div>
-  <button class="control-btn" onclick="findMyLocation()" title="Mana atrašanās vieta">📍</button>
   <button class="control-btn" id="reload-streets-btn" onclick="retryLoadStreets()" title="Pārlādēt ielas">🔃</button>
 </div>
 
