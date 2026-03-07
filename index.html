@@ -151,16 +151,10 @@
     <label class="option-card"><input type="checkbox" id="carsCheck"> <span style="margin-left:10px;">🚗 Netīrs braucējiem</span></label>
     <div id="pedSection" style="opacity:0.5; border-top:1px solid var(--border); margin-top:15px; padding-top:15px;">
       <label class="option-card"><input type="checkbox" id="pedCheck" disabled> <span style="margin-left:10px;">🚶 Netīrs gājējiem</span></label>
-      
-      <div id="pay-notice" style="display:none;">
+      <div id="pay-notice">
         <p style="font-size: 0.75rem; text-align: center;">Premium funkcija: 0.67€</p>
         <div id="paypal-button-container"></div>
       </div>
-
-      <div id="guest-notice" style="display:none; text-align: center; padding: 10px; background: var(--input-bg); border-radius: 12px; margin-top: 10px;">
-        <p style="font-size: 0.85rem; font-weight: 600; margin: 0; color: var(--accent);">Piesakieties, lai iegādātos Premium</p>
-      </div>
-      
     </div>
   </div>
   <button onclick="applyStatus()" class="btn-apply">Saglabāt</button>
@@ -203,13 +197,10 @@ auth.onAuthStateChanged(async (user) => {
     tag.innerText = userProfile?.username || "Lietotājs";
     tag.disabled = false;
     if (userProfile?.role === 'admin') document.getElementById('admin-panel-btn').style.display = 'block';
-    
-    // Hide guest notice when logged in
-    document.getElementById("guest-notice").style.display = "none";
-    
     if (userProfile?.isPremium) {
       unlockPedestrianFeature();
     } else {
+      // If user logged in but no premium, reset status if needed
       isPedestrianUnlocked = false;
       document.getElementById("pedCheck").disabled = true;
       document.getElementById("pedSection").style.opacity = "0.5";
@@ -217,10 +208,8 @@ auth.onAuthStateChanged(async (user) => {
   } else {
     document.getElementById('logged-out-ui').style.display = 'block';
     document.getElementById('logged-in-ui').style.display = 'none';
-    
-    // Reset Premium states for guest
+    // HIDE PAYPAL FOR GUESTS
     document.getElementById("pay-notice").style.display = "none";
-    document.getElementById("guest-notice").style.display = "none"; // Hidden until they click a street
     isPedestrianUnlocked = false;
     document.getElementById("pedCheck").disabled = true;
     document.getElementById("pedSection").style.opacity = "0.5";
@@ -341,13 +330,10 @@ async function loadStreets() {
           if (isPedestrianUnlocked) {
             document.getElementById("pedCheck").checked = state.ped;
             document.getElementById("pay-notice").style.display = "none";
-            document.getElementById("guest-notice").style.display = "none";
           } else {
+            // ONLY SHOW PAYPAL IF LOGGED IN
             const isLoggedIn = auth.currentUser !== null;
-            // Logic for showing payment or login hint
             document.getElementById("pay-notice").style.display = isLoggedIn ? "block" : "none";
-            document.getElementById("guest-notice").style.display = isLoggedIn ? "none" : "block";
-            
             document.getElementById("pedCheck").checked = state.ped;
             document.getElementById("pedCheck").disabled = true;
           }
@@ -406,7 +392,6 @@ function unlockPedestrianFeature() {
   isPedestrianUnlocked = true;
   document.getElementById("pedCheck").disabled = false;
   document.getElementById("pay-notice").style.display = "none";
-  document.getElementById("guest-notice").style.display = "none";
   document.getElementById("pedSection").style.opacity = "1";
 }
 
