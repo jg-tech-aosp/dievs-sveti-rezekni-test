@@ -378,6 +378,12 @@
     .inbox-item-preview { font-size: 0.8rem; opacity: 0.5; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .inbox-item.unread { border-color: var(--accent); }
     .inbox-item.unread .inbox-item-name::after { content: ' 🔵'; font-size: 0.6rem; }
+    /* Notification styles */
+    .notif-item { padding:10px 12px; border-radius:12px; cursor:pointer; transition:0.15s; border-left:3px solid transparent; margin-bottom:6px; font-size:0.85rem; }
+    .notif-item:hover { background: var(--input-bg); }
+    .notif-item.unread { border-left-color: var(--accent); background: var(--input-bg); }
+    .notif-item-text { line-height:1.4; }
+    .notif-item-time { font-size:0.75rem; opacity:0.4; margin-top:3px; }
   </style>
 </head>
 <body>
@@ -391,6 +397,7 @@
     <button class="auth-btn" id="user-tag" onclick="openSettings()">Ielādē...</button>
     <button class="auth-btn" onclick="handleLogout()">Iziet</button>
     <button class="auth-btn" id="dm-inbox-btn" onclick="openInbox()" style="position:relative;">📬 <span id="dm-unread-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#FF3B30;color:white;border-radius:50%;width:16px;height:16px;font-size:0.6rem;line-height:16px;text-align:center;">!</span></button>
+    <button class="auth-btn" onclick="openNotifications()" style="position:relative;">🔔 <span id="notif-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#FF3B30;color:white;border-radius:50%;width:16px;height:16px;font-size:0.6rem;line-height:16px;text-align:center;"></span></button>
     <button class="auth-btn" onclick="openUserSearch()">🔍</button>
     <button class="auth-btn" id="admin-panel-btn" style="display:none; background:#FF3B30; color:white;" onclick="openAdminDashboard()">Admin ⚙️</button>
   </div>
@@ -492,6 +499,22 @@
     <input type="text" id="user-search-input" placeholder="Ievadi lietotājvārdu..." oninput="handleUserSearch()" style="margin-top:12px; padding:10px 14px; border-radius:12px; border:1px solid var(--border); background:var(--input-bg); color:var(--text-main); font-family:'Inter',sans-serif; flex-shrink:0;">
     <div id="user-search-results" style="overflow-y:auto; flex:1; margin-top:10px; scrollbar-width:thin;">
       <div style="opacity:0.4;font-size:0.85rem;padding:10px;">Raksti, lai meklētu...</div>
+    </div>
+  </div>
+</div>
+
+<!-- Notifications Modal -->
+<div class="modal-overlay" id="notif-modal" style="display:none;">
+  <div class="modal-card" style="max-height:75vh; display:flex; flex-direction:column; overflow:hidden; width:360px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+      <h2 style="margin:0;">🔔 Paziņojumi</h2>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button onclick="markAllNotifsRead()" style="background:none;border:none;color:var(--accent);font-size:0.8rem;cursor:pointer;">Atzīmēt visus</button>
+        <button onclick="closeNotifications()" class="btn-small">X</button>
+      </div>
+    </div>
+    <div id="notif-list" style="overflow-y:auto; flex:1; margin-top:12px; scrollbar-width:thin;">
+      <div style="opacity:0.4;font-size:0.85rem;padding:10px;">Nav paziņojumu.</div>
     </div>
   </div>
 </div>
@@ -669,6 +692,8 @@ auth.onAuthStateChanged(async (user) => {
       const hasUnread = val && Object.values(val).some(c => c.unread === true);
       badge.style.display = hasUnread ? 'block' : 'none';
     });
+    // Watch for unread notifications
+    watchNotifBadge(user.uid);
   } else {
     document.getElementById('logged-out-ui').style.display = 'block';
     document.getElementById('logged-in-ui').style.display = 'none';
@@ -688,6 +713,7 @@ async function signInWithGoogle() {
         role: 'user',
         isPremium: false
       });
+      await database.ref('user_index/' + user.uid).set({ username: user.displayName, isPremium: false, bio: '' });
     }
     closeAuth();
   } catch (error) {
@@ -707,11 +733,12 @@ function openSettings() {
 function closeSettings() { document.getElementById('settings-modal').style.display = 'none'; }
 async function updateUserSettings() {
   try {
+    const username = document.getElementById('settings-username').value;
+    const bio = document.getElementById('settings-bio').value;
     await database.ref('users/' + auth.currentUser.uid).update({
-      username: document.getElementById('settings-username').value,
-      dob: document.getElementById('settings-dob').value,
-      bio: document.getElementById('settings-bio').value
+      username, dob: document.getElementById('settings-dob').value, bio
     });
+    await database.ref('user_index/' + auth.currentUser.uid).update({ username, bio });
     alert("Saglabāts!"); location.reload();
   } catch (e) { alert(e.message); }
 }
@@ -743,7 +770,7 @@ function renderUserList() {
       const row = document.createElement('div');
       row.className = 'user-row';
       row.innerHTML = `
-        <div style="font-weight:700;">${u.username} (${u.dob || '—'})</div>
+        <div style="font-weight:700; cursor:pointer; text-decoration:underline;" onclick="closeAdminDashboard(); openProfile('${uid}', '${u.username}')">${u.username} (${u.dob || '—'})</div>
         <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;">
           <button class="btn-small" style="background:${u.isPremium ? '#34C759' : '#8E8E93'}; color:white;" onclick="updateAdminUser('${uid}', {isPremium: ${!u.isPremium}})">${u.isPremium ? 'Noņemt Premium' : 'Dot Premium'}</button>
           <button class="btn-small" style="background:${u.bannedDraw ? '#FF9500' : '#8E8E93'}; color:white;" onclick="updateAdminUser('${uid}', {bannedDraw: ${!u.bannedDraw}})">${u.bannedDraw ? '✓ Aizl. zīmēt' : 'Aizliegt zīmēt'}</button>
@@ -956,7 +983,10 @@ function unlockPedestrianFeature() {
 paypal.Buttons({
   createOrder: (data, actions) => actions.order.create({ purchase_units: [{ amount: { value: '0.67', currency_code: 'EUR' } }] }),
   onApprove: (data, actions) => actions.order.capture().then(() => {
-    if (auth.currentUser) database.ref('users/' + auth.currentUser.uid).update({ isPremium: true });
+    if (auth.currentUser) {
+      database.ref('users/' + auth.currentUser.uid).update({ isPremium: true });
+      database.ref('user_index/' + auth.currentUser.uid).update({ isPremium: true });
+    }
     unlockPedestrianFeature();
   })
 }).render('#paypal-button-container');
@@ -968,7 +998,9 @@ async function submitAuth() {
   try {
     if (isReg) {
       const res = await auth.createUserWithEmailAndPassword(email, pass);
-      await database.ref('users/' + res.user.uid).set({ username: document.getElementById('username').value, dob: document.getElementById('dob').value, role: 'user', isPremium: false });
+      const username = document.getElementById('username').value;
+      await database.ref('users/' + res.user.uid).set({ username, dob: document.getElementById('dob').value, role: 'user', isPremium: false });
+      await database.ref('user_index/' + res.user.uid).set({ username, isPremium: false, bio: '' });
     } else { await auth.signInWithEmailAndPassword(email, pass); }
     closeAuth();
   } catch (e) { alert(e.message); }
@@ -1065,6 +1097,18 @@ async function submitPost() {
     timestamp: Date.now()
   };
   await database.ref('feed').push(post);
+  // Notify all followers
+  const followersSnap = await database.ref(`followers/${auth.currentUser.uid}`).once('value');
+  if (followersSnap.exists()) {
+    const myName = userProfile?.username || auth.currentUser.displayName || 'Lietotājs';
+    Object.keys(followersSnap.val()).forEach(followerUID => {
+      pushNotif(followerUID, {
+        icon: '📝',
+        text: `<strong>${myName}</strong> publicēja jaunu ierakstu.`,
+        uid: auth.currentUser.uid, username: myName
+      });
+    });
+  }
   document.getElementById('feed-text').value = '';
   document.getElementById('feed-photo-previews').innerHTML = '';
   document.getElementById('feed-photo-input').value = '';
@@ -1170,6 +1214,16 @@ async function toggleLike(postId, btnEl) {
     await likeRef.remove();
   } else {
     await likeRef.set(true);
+    // Notify post owner
+    const postSnap = await database.ref(`feed/${postId}`).once('value');
+    const post = postSnap.val();
+    if (post && post.uid !== uid) {
+      pushNotif(post.uid, {
+        icon: '❤️',
+        text: `<strong>${userProfile?.username || 'Kāds'}</strong> patīk tavs ieraksts.`,
+        uid, username: userProfile?.username || 'Lietotājs'
+      });
+    }
   }
 }
 
@@ -1222,6 +1276,16 @@ async function submitComment(postId) {
     text: filterText(text),
     timestamp: Date.now()
   });
+  // Notify post owner
+  const postSnap = await database.ref(`feed/${postId}`).once('value');
+  const post = postSnap.val();
+  if (post && post.uid !== auth.currentUser.uid) {
+    pushNotif(post.uid, {
+      icon: '💬',
+      text: `<strong>${userProfile?.username || 'Kāds'}</strong> komentēja uz tava ieraksta: "${filterText(text).slice(0, 40)}${text.length > 40 ? '…' : ''}"`,
+      uid: auth.currentUser.uid, username: userProfile?.username || 'Lietotājs'
+    });
+  }
   input.value = '';
 }
 
@@ -1316,9 +1380,12 @@ async function openProfile(uid, username) {
 
   const snap = await database.ref('users/' + uid).once('value');
   const u = snap.val();
-  if (u) {
-    document.getElementById('profile-badge').innerHTML = u.isPremium ? '✨ <strong>Premium</strong>' : '👤 Bezmaksas';
-    document.getElementById('profile-bio').innerText = u.bio || 'Nav bio.';
+  // Fall back to user_index if no data (non-admin reading another user)
+  const indexSnap = u ? null : await database.ref('user_index/' + uid).once('value');
+  const uData = u || indexSnap?.val();
+  if (uData) {
+    document.getElementById('profile-badge').innerHTML = uData.isPremium ? '✨ <strong>Premium</strong>' : '👤 Bezmaksas';
+    document.getElementById('profile-bio').innerText = uData.bio || 'Nav bio.';
   }
 
   const feedSnap = await database.ref('feed').orderByChild('uid').equalTo(uid).once('value');
@@ -1347,6 +1414,11 @@ async function toggleFollow() {
   } else {
     await followRef.set(true);
     await followingRef.set(true);
+    pushNotif(theirUID, {
+      icon: '👤',
+      text: `<strong>${userProfile?.username || 'Kāds'}</strong> sāka tev sekot.`,
+      uid: myUID, username: userProfile?.username || 'Lietotājs'
+    });
   }
   // Refresh counts and button
   const username = document.getElementById('profile-username').innerText;
@@ -1368,7 +1440,7 @@ async function openFollowList(type) {
   container.innerHTML = '';
   const uids = Object.keys(val);
   for (const u of uids) {
-    const uSnap = await database.ref(`users/${u}`).once('value');
+    const uSnap = await database.ref(`user_index/${u}`).once('value');
     const uData = uSnap.val();
     const name = uData?.username || 'Lietotājs';
     const item = document.createElement('div');
@@ -1401,7 +1473,7 @@ async function handleUserSearch() {
     return;
   }
   results.innerHTML = '<div style="opacity:0.4;font-size:0.85rem;padding:10px;">Meklē...</div>';
-  const snap = await database.ref('users').once('value');
+  const snap = await database.ref('user_index').once('value');
   const val = snap.val();
   if (!val) { results.innerHTML = '<div style="opacity:0.4;font-size:0.85rem;padding:10px;">Nav rezultātu.</div>'; return; }
   const matches = Object.entries(val)
@@ -1425,7 +1497,78 @@ async function handleUserSearch() {
   });
 }
 
-function startDMFromProfile() {
+// --- NOTIFICATIONS ---
+let notifListener = null;
+
+function pushNotif(targetUID, notif) {
+  if (!targetUID || targetUID === auth.currentUser?.uid) return;
+  database.ref(`notifications/${targetUID}`).push({ ...notif, read: false, timestamp: Date.now() });
+}
+
+function openNotifications() {
+  if (!auth.currentUser) return;
+  document.getElementById('notif-modal').style.display = 'flex';
+  const list = document.getElementById('notif-list');
+  list.innerHTML = '<div style="opacity:0.4;font-size:0.85rem;padding:10px;">Ielādē...</div>';
+  if (notifListener) { database.ref(`notifications/${auth.currentUser.uid}`).off('value', notifListener); notifListener = null; }
+  notifListener = database.ref(`notifications/${auth.currentUser.uid}`).orderByChild('timestamp').on('value', snap => {
+    const val = snap.val();
+    const badge = document.getElementById('notif-badge');
+    if (!val) {
+      list.innerHTML = '<div style="opacity:0.4;font-size:0.85rem;padding:10px;">Nav paziņojumu.</div>';
+      badge.style.display = 'none';
+      return;
+    }
+    const entries = Object.entries(val).reverse();
+    const unreadCount = entries.filter(([, n]) => !n.read).length;
+    badge.style.display = unreadCount > 0 ? 'block' : 'none';
+    badge.innerText = unreadCount > 9 ? '9+' : unreadCount;
+    list.innerHTML = '';
+    entries.forEach(([nid, n]) => {
+      const item = document.createElement('div');
+      item.className = `notif-item${n.read ? '' : ' unread'}`;
+      item.innerHTML = `
+        <div class="notif-item-text">${n.icon} ${n.text}</div>
+        <div class="notif-item-time">${timeAgo(n.timestamp)}</div>
+      `;
+      if (n.uid) item.onclick = () => { markNotifRead(nid); closeNotifications(); openProfile(n.uid, n.username); };
+      else item.onclick = () => markNotifRead(nid);
+      list.appendChild(item);
+    });
+  });
+}
+
+function closeNotifications() {
+  if (notifListener && auth.currentUser) { database.ref(`notifications/${auth.currentUser.uid}`).off('value', notifListener); notifListener = null; }
+  document.getElementById('notif-modal').style.display = 'none';
+}
+
+function markNotifRead(nid) {
+  if (!auth.currentUser) return;
+  database.ref(`notifications/${auth.currentUser.uid}/${nid}/read`).set(true);
+}
+
+function markAllNotifsRead() {
+  if (!auth.currentUser) return;
+  database.ref(`notifications/${auth.currentUser.uid}`).once('value').then(snap => {
+    const val = snap.val();
+    if (!val) return;
+    const updates = {};
+    Object.keys(val).forEach(nid => { updates[`${nid}/read`] = true; });
+    database.ref(`notifications/${auth.currentUser.uid}`).update(updates);
+  });
+}
+
+function watchNotifBadge(uid) {
+  database.ref(`notifications/${uid}`).on('value', snap => {
+    const val = snap.val();
+    const badge = document.getElementById('notif-badge');
+    if (!badge) return;
+    const unread = val ? Object.values(val).filter(n => !n.read).length : 0;
+    badge.style.display = unread > 0 ? 'block' : 'none';
+    badge.innerText = unread > 9 ? '9+' : unread;
+  });
+}
   if (!currentProfileUID) return;
   const username = document.getElementById('profile-username').innerText;
   startDMWith(currentProfileUID, username);
