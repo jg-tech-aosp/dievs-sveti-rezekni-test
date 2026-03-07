@@ -483,6 +483,11 @@
         <div id="paypal-button-container"></div>
       </div>
     </div>
+    <!-- Street history — admin only -->
+    <div id="street-history-section" style="display:none; margin-top:15px; border-top:1px solid var(--border); padding-top:15px;">
+      <div style="font-weight:700; font-size:0.8rem; opacity:0.5; margin-bottom:8px;">📋 IZMAIŅU VĒSTURE</div>
+      <div id="street-history-list"></div>
+    </div>
   </div>
   <button onclick="applyStatus()" class="btn-apply">Saglabāt</button>
 </div>
@@ -750,6 +755,14 @@ async function loadStreets() {
           document.getElementById("carsCheck").checked = state.cars;
           if (isPedestrianUnlocked) document.getElementById("pedCheck").checked = state.ped;
           document.getElementById("panel").style.display = "flex";
+          // Show history section for admins
+          const historySection = document.getElementById('street-history-section');
+          if (userProfile?.role === 'admin') {
+            historySection.style.display = 'block';
+            loadStreetHistory(id);
+          } else {
+            historySection.style.display = 'none';
+          }
         });
       }
     }).addTo(map);
@@ -796,11 +809,42 @@ function applyStatus() {
     return;
   }
   const id = selectedLayer.feature.properties.id;
-  database.ref('streets/' + id).set({
-    cars: document.getElementById("carsCheck").checked,
-    ped: isPedestrianUnlocked ? document.getElementById("pedCheck").checked : (streetStates[id]?.ped || false)
-  });
+  const cars = document.getElementById("carsCheck").checked;
+  const ped = isPedestrianUnlocked ? document.getElementById("pedCheck").checked : (streetStates[id]?.ped || false);
+
+  database.ref('streets/' + id).set({ cars, ped });
+
+  // Log history entry
+  const historyEntry = {
+    uid: auth.currentUser?.uid || 'guest',
+    username: userProfile?.username || auth.currentUser?.displayName || 'Viesis',
+    cars,
+    ped,
+    timestamp: Date.now()
+  };
+  database.ref(`street_history/${id}`).push(historyEntry);
+
   document.getElementById("panel").style.display = "none";
+}
+
+async function loadStreetHistory(streetId) {
+  const list = document.getElementById('street-history-list');
+  list.innerHTML = '<div style="opacity:0.4;font-size:0.8rem;">Ielādē...</div>';
+  const snap = await database.ref(`street_history/${streetId}`).orderByChild('timestamp').limitToLast(10).once('value');
+  const val = snap.val();
+  if (!val) {
+    list.innerHTML = '<div style="opacity:0.4;font-size:0.8rem;">Nav vēstures.</div>';
+    return;
+  }
+  const entries = Object.values(val).reverse();
+  list.innerHTML = entries.map(e => {
+    const flags = [e.cars ? '🚗' : '', e.ped ? '🚶' : ''].filter(Boolean).join(' ') || '✅ Tīrs';
+    return `<div style="padding:6px 0; border-bottom:1px solid var(--border); font-size:0.8rem;">
+      <span style="font-weight:700;">${e.username}</span>
+      <span style="opacity:0.5; margin-left:6px;">${timeAgo(e.timestamp)}</span>
+      <div style="margin-top:2px;">${flags}</div>
+    </div>`;
+  }).join('');
 }
 
 function unlockPedestrianFeature() {
