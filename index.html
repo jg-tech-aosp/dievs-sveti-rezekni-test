@@ -40,7 +40,7 @@
     #logged-in-ui { display: flex; gap: 8px; align-items: center; }
     .nav-icon-group { display: flex; gap: 8px; align-items: center; }
     .hamburger-wrap { display: none; }
-    .nav-dropdown { display: none; position: absolute; top: 54px; left: 0; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; padding: 10px; box-shadow: var(--shadow); backdrop-filter: blur(20px); flex-direction: column; gap: 8px; z-index: 1002; min-width: 180px; }
+    .nav-dropdown { display: none; position: absolute; top: 54px; right: 0; left: auto; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; padding: 10px; box-shadow: var(--shadow); backdrop-filter: blur(20px); flex-direction: column; gap: 8px; z-index: 1002; min-width: 180px; }
     .nav-dropdown.open { display: flex; }
     .nav-dropdown .auth-btn { width: 100%; text-align: left; box-shadow: none; }
     @media (max-width: 600px) {
@@ -52,6 +52,7 @@
     #user-tag:not([disabled]):hover { background: var(--input-bg); }
 
     .theme-toggle { position: absolute; top: 20px; right: 20px; z-index: 1000; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; width: 44px; height: 44px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow); font-size: 1.2rem; }
+    @media (max-width: 600px) { .theme-toggle { display: none; } }
 
     /* Search & Location Controls */
     .map-controls { position: absolute; top: 80px; left: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
@@ -423,6 +424,7 @@
         <button class="auth-btn" onclick="openUserSearch(); toggleNavDropdown()">🔍 Meklēt</button>
         <button class="auth-btn" onclick="findMyLocation(); toggleNavDropdown()">📍 Atrast mani</button>
         <button class="auth-btn" id="admin-panel-btn-m" style="display:none; background:#FF3B30; color:white;" onclick="openAdminDashboard(); toggleNavDropdown()">Admin ⚙️</button>
+        <button class="auth-btn" onclick="toggleTheme(); toggleNavDropdown()" id="themeBtn-m">🌙 Tumšais režīms</button>
       </div>
     </div>
   </div>
@@ -851,6 +853,8 @@ function setTheme(theme) {
   Object.values(tileLayers).forEach(l => map.removeLayer(l));
   tileLayers[theme].addTo(map);
   document.getElementById('themeBtn').innerHTML = theme === 'light' ? '🌙' : '☀️';
+  const mBtn = document.getElementById('themeBtn-m');
+  if (mBtn) mBtn.innerText = theme === 'dark' ? '☀️ Gaišais režīms' : '🌙 Tumšais režīms';
   localStorage.setItem('theme', theme);
   currentTheme = theme;
 }
