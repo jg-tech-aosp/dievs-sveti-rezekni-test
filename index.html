@@ -1825,5 +1825,14 @@ database.ref('feed').orderByChild('timestamp').on('value', (snapshot) => {
 
 loadStreets();
 </script>
+
+<div id="test-banner" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:9999; background:#FF3B30; color:white; text-align:center; padding:8px; font-size:0.78rem; font-weight:700; letter-spacing:0.05em;">
+  ⚠️ THIS IS A TEST VERSION. IT MAY BE UNSTABLE. DEVS ONLY ⚠️
+</div>
+<script>
+  if (window.location.href.includes('dievs-sveti-rezekni-test')) {
+    document.getElementById('test-banner').style.display = 'block';
+  }
+</script>
 </body>
 </html>
