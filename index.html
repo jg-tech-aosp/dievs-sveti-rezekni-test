@@ -299,6 +299,7 @@
     <div id="search-results" class="search-results"></div>
   </div>
   <button class="control-btn" onclick="findMyLocation()" title="Mana atrašanās vieta">📍</button>
+  <button class="control-btn" id="reload-streets-btn" onclick="retryLoadStreets()" title="Pārlādēt ielas">🔃</button>
 </div>
 
 <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
@@ -559,6 +560,21 @@ database.ref('streets').on('value', (snapshot) => {
   }
 });
 
+async function retryLoadStreets() {
+  const btn = document.getElementById('reload-streets-btn');
+  btn.innerText = '⏳';
+  btn.style.pointerEvents = 'none';
+  // Clear existing layers
+  for (let id in streetLayersById) {
+    map.removeLayer(streetLayersById[id]);
+  }
+  streetLayersById = {};
+  selectedLayer = null;
+  await loadStreets();
+  btn.innerText = '🔃';
+  btn.style.pointerEvents = 'auto';
+}
+
 async function loadStreets() {
   const query = `[out:json][timeout:25];(way["highway"~"trunk|primary|secondary|tertiary|residential|unclassified|living_street"](56.45,27.25,56.55,27.42););out geom;`;
   try {
@@ -804,4 +820,3 @@ loadStreets();
 </script>
 </body>
 </html>
-
