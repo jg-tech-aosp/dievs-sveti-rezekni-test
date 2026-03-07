@@ -1569,6 +1569,8 @@ function watchNotifBadge(uid) {
     badge.innerText = unread > 9 ? '9+' : unread;
   });
 }
+
+function startDMFromProfile() {
   if (!currentProfileUID) return;
   const username = document.getElementById('profile-username').innerText;
   startDMWith(currentProfileUID, username);
