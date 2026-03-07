@@ -38,20 +38,7 @@
     .auth-nav { position: absolute; top: 20px; left: 20px; z-index: 1000; display: flex; gap: 10px; }
     .auth-btn { background: var(--bg-panel); color: var(--text-main); border: 1px solid var(--border); padding: 10px 16px; border-radius: 12px; cursor: pointer; font-weight: 600; backdrop-filter: blur(10px); box-shadow: var(--shadow); transition: 0.2s; }
     
-    #user-tag:not([disabled]) { border-color: var(--accent); cursor: pointer; }
-    #user-tag:not([disabled]):hover { background: var(--input-bg); }
-
-    .theme-toggle { position: absolute; top: 20px; right: 20px; z-index: 1000; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; width: 44px; height: 44px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow); font-size: 1.2rem; }
-
-    /* Modals */
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(8px); }
-    .modal-card { background: var(--bg-panel); padding: 30px; border-radius: 24px; color: var(--text-main); border: 1px solid var(--border); box-shadow: var(--shadow); width: 320px; }
-    .modal-card input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 12px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text-main); box-sizing: border-box; }
-    
-    /* Google Button Styling */
-    .google-btn { background: #fff; color: #757575; border: 1px solid #ddd; padding: 10px; border-radius: 12px; width: 100%; font-weight: 600; cursor: pointer; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 10px; }
-
-    /* Control Panel FIXES */
+    /* Control Panel - FORCED SCROLLING FIX */
     .control-panel { 
       position: absolute; 
       z-index: 1000; 
@@ -61,32 +48,46 @@
       box-shadow: var(--shadow); 
       color: var(--text-main); 
       display: flex; 
-      flex-direction: column; 
-      max-height: 85vh; /* Prevents panel from going off-screen */
+      flex-direction: column;
+      box-sizing: border-box;
+      /* Crucial: Set a hard limit on height */
+      max-height: 80vh; 
+      overflow: hidden; 
     }
     
-    @media (min-width: 601px) { .control-panel { bottom: 30px; left: 30px; width: 340px; border-radius: 24px; padding: 24px; } }
-    @media (max-width: 600px) { .control-panel { bottom: 20px; left: 5%; right: 5%; width: 90%; border-radius: 28px; padding: 20px; box-sizing: border-box; } }
+    @media (min-width: 601px) { .control-panel { bottom: 30px; left: 30px; width: 340px; border-radius: 24px; padding: 20px; } }
+    @media (max-width: 600px) { .control-panel { bottom: 20px; left: 5%; right: 5%; width: 90%; border-radius: 28px; padding: 20px; } }
+
+    .control-panel h2 { margin-top: 0; flex-shrink: 0; }
 
     .panel-content { 
-      overflow-y: auto; /* Makes the content (PayPal) scrollable */
-      flex: 1; 
+      overflow-y: auto; /* Forces internal scrollbar */
+      flex-grow: 1; 
       padding-right: 5px;
-      -webkit-overflow-scrolling: touch; /* Smooth scrolling for mobile */
+      margin-bottom: 10px;
+      -webkit-overflow-scrolling: touch;
     }
 
-    .option-card { display: flex; align-items: center; padding: 14px; margin: 6px 0; background: var(--input-bg); border-radius: 16px; }
-    .btn-apply { background: var(--accent); color: white; border: none; padding: 16px; border-radius: 16px; width: 100%; font-weight: 700; cursor: pointer; margin-top: 10px; flex-shrink: 0; }
-    
-    #paypal-button-container { margin-top: 15px; min-height: 150px; }
+    /* Scrollbar styling for a cleaner look */
+    .panel-content::-webkit-scrollbar { width: 6px; }
+    .panel-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
 
-    /* Map Controls & Others */
-    .map-controls { position: absolute; top: 80px; left: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
-    .search-box { position: relative; width: 250px; }
-    #streetSearch { width: 100%; padding: 12px 15px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-panel); color: var(--text-main); backdrop-filter: blur(10px); box-shadow: var(--shadow); box-sizing: border-box; }
-    .search-results { position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-panel); border-radius: 12px; margin-top: 5px; max-height: 200px; overflow-y: auto; display: none; box-shadow: var(--shadow); z-index: 1001; }
-    .search-item { padding: 10px 15px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 0.9rem; color: var(--text-main); }
-    .control-btn { width: 44px; height: 44px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; box-shadow: var(--shadow); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+    .option-card { display: flex; align-items: center; padding: 14px; margin: 6px 0; background: var(--input-bg); border-radius: 16px; }
+    .btn-apply { background: var(--accent); color: white; border: none; padding: 16px; border-radius: 16px; width: 100%; font-weight: 700; cursor: pointer; flex-shrink: 0; }
+    
+    #paypal-button-container { 
+        margin-top: 15px; 
+        width: 100%;
+        /* Force the container to take height so PayPal can render */
+        min-height: 200px; 
+    }
+
+    /* Auth Modals */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(8px); }
+    .modal-card { background: var(--bg-panel); padding: 30px; border-radius: 24px; color: var(--text-main); border: 1px solid var(--border); box-shadow: var(--shadow); width: 320px; }
+    .modal-card input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 12px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text-main); box-sizing: border-box; }
+    
+    .google-btn { background: #fff; color: #757575; border: 1px solid #ddd; padding: 10px; border-radius: 12px; width: 100%; font-weight: 600; cursor: pointer; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 10px; }
   </style>
 </head>
 <body>
@@ -99,19 +100,9 @@
   <div id="logged-in-ui" style="display:none;">
     <button class="auth-btn" id="user-tag" onclick="openSettings()">Ielādē...</button>
     <button class="auth-btn" onclick="handleLogout()">Iziet</button>
-    <button class="auth-btn" id="admin-panel-btn" style="display:none; background:#FF3B30; color:white;" onclick="openAdminDashboard()">Admin ⚙️</button>
   </div>
 </div>
 
-<div class="map-controls">
-  <div class="search-box">
-    <input type="text" id="streetSearch" placeholder="Meklēt ielu Rēzeknē..." oninput="handleSearch()">
-    <div id="search-results" class="search-results"></div>
-  </div>
-  <button class="control-btn" onclick="findMyLocation()" title="Mana atrašanās vieta">📍</button>
-</div>
-
-<button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
 <div id="map"></div>
 
 <div class="modal-overlay" id="auth-modal">
@@ -121,15 +112,12 @@
     <input type="password" id="password" placeholder="Parole">
     <div id="reg-fields" style="display:none;">
       <input type="text" id="username" placeholder="Lietotājvārds">
-      <input type="date" id="dob" title="Dzimšanas datums">
+      <input type="date" id="dob">
     </div>
     <button class="btn-apply" onclick="submitAuth()">Apstiprināt</button>
-    
     <button class="google-btn" onclick="signInWithGoogle()">
-      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" height="18"> 
-      Turpināt ar Google
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" height="18"> Turpināt ar Google
     </button>
-
     <button onclick="closeAuth()" style="margin-top:10px; width:100%; background:none; border:none; color:var(--text-main); opacity:0.5; cursor:pointer;">Atcelt</button>
   </div>
 </div>
@@ -137,11 +125,19 @@
 <div class="control-panel" id="panel" style="display:none;">
   <h2>Ielas Statuss</h2>
   <div class="panel-content">
-    <label class="option-card"><input type="checkbox" id="carsCheck"> <span style="margin-left:10px;">🚗 Netīrs braucējiem</span></label>
+    <label class="option-card">
+        <input type="checkbox" id="carsCheck"> 
+        <span style="margin-left:10px;">🚗 Netīrs braucējiem</span>
+    </label>
+    
     <div id="pedSection" style="opacity:0.5; border-top:1px solid var(--border); margin-top:15px; padding-top:15px;">
-      <label class="option-card"><input type="checkbox" id="pedCheck" disabled> <span style="margin-left:10px;">🚶 Netīrs gājējiem</span></label>
+      <label class="option-card">
+          <input type="checkbox" id="pedCheck" disabled> 
+          <span style="margin-left:10px;">🚶 Netīrs gājējiem</span>
+      </label>
+      
       <div id="pay-notice">
-        <p style="font-size: 0.75rem; text-align: center;">Premium funkcija: 0.67€</p>
+        <p style="font-size: 0.75rem; text-align: center; margin-bottom: 10px;">Premium funkcija: 0.67€</p>
         <div id="paypal-button-container"></div>
       </div>
     </div>
@@ -151,6 +147,7 @@
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
+// Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyA0dMTX1y7CYZBLyd4lgQDkR8nJ7utRvIc",
   authDomain: "rezekne-app.firebaseapp.com",
@@ -166,25 +163,25 @@ const database = firebase.database();
 const auth = firebase.auth();
 const googleProvider = new firebase.auth.GoogleAuthProvider();
 
-let userProfile = null;
-let streetStates = {};
-let streetLayersById = {};
 let selectedLayer = null;
 let isPedestrianUnlocked = false;
 
-// --- AUTH ---
+// Auth State
 auth.onAuthStateChanged(async (user) => {
   if (user) {
-    const snapshot = await database.ref('users/' + user.uid).once('value');
-    userProfile = snapshot.val();
     document.getElementById('logged-out-ui').style.display = 'none';
     document.getElementById('logged-in-ui').style.display = 'block';
-    document.getElementById('user-tag').innerText = userProfile?.username || user.displayName || "Lietotājs";
-    if (userProfile?.role === 'admin') document.getElementById('admin-panel-btn').style.display = 'block';
-    if (userProfile?.isPremium) unlockPedestrianFeature();
+    const snapshot = await database.ref('users/' + user.uid).once('value');
+    const profile = snapshot.val();
+    document.getElementById('user-tag').innerText = profile?.username || user.displayName || "Lietotājs";
+    if (profile?.isPremium) unlockPedestrianFeature();
+  } else {
+    document.getElementById('logged-out-ui').style.display = 'block';
+    document.getElementById('logged-in-ui').style.display = 'none';
   }
 });
 
+// Google Login
 async function signInWithGoogle() {
   try {
     const result = await auth.signInWithPopup(googleProvider);
@@ -198,11 +195,22 @@ async function signInWithGoogle() {
       });
     }
     closeAuth();
-  } catch (error) { alert("Google kļūda: " + error.message); }
+  } catch (error) { alert("Google error: " + error.message); }
 }
 
-// --- PAYPAL ---
+// Map Logic
+const map = L.map('map', { zoomControl: false }).setView([56.5100, 27.3400], 14);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
+
+// Example loading one street for testing
+L.polyline([[56.51, 27.34], [56.515, 27.345]], {color: 'blue', weight: 8}).addTo(map).on('click', function(e) {
+    selectedLayer = e.target;
+    document.getElementById('panel').style.display = 'flex';
+});
+
+// PayPal Logic
 paypal.Buttons({
+  style: { layout: 'vertical', shape: 'rect' },
   createOrder: (data, actions) => actions.order.create({ purchase_units: [{ amount: { value: '0.67', currency_code: 'EUR' } }] }),
   onApprove: (data, actions) => actions.order.capture().then(() => {
     if (auth.currentUser) database.ref('users/' + auth.currentUser.uid).update({ isPremium: true });
@@ -217,36 +225,11 @@ function unlockPedestrianFeature() {
   document.getElementById("pedSection").style.opacity = "1";
 }
 
-// --- MAP LOGIC (Condensed for brevity) ---
-const map = L.map('map', { zoomControl: false }).setView([56.5100, 27.3400], 14);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(map);
-
-async function loadStreets() {
-  const query = `[out:json][timeout:25];(way["highway"~"trunk|primary|secondary|tertiary|residential"](56.45,27.25,56.55,27.42););out geom;`;
-  const res = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: query });
-  const data = await res.json();
-  
-  L.geoJSON(data.elements.map(el => ({
-    type: "Feature", geometry: { type: "LineString", coordinates: el.geometry.map(g => [g.lon, g.lat]) },
-    properties: { id: el.id, name: el.tags?.name }
-  })), {
-    style: { color: "#94a3b8", weight: 6, opacity: 0.8 },
-    onEachFeature: (f, layer) => {
-      streetLayersById[f.properties.id] = layer;
-      layer.on("click", () => {
-        selectedLayer = layer;
-        document.getElementById("panel").style.display = "flex";
-      });
-    }
-  }).addTo(map);
-}
-
 function openAuth(m) { document.getElementById('auth-modal').style.display='flex'; }
 function closeAuth() { document.getElementById('auth-modal').style.display='none'; }
-function applyStatus() { /* logic to save to firebase */ document.getElementById("panel").style.display = "none"; }
+function applyStatus() { document.getElementById('panel').style.display='none'; }
 function handleLogout() { auth.signOut().then(() => location.reload()); }
 
-loadStreets();
 </script>
 </body>
 </html>
