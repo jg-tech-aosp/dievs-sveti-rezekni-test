@@ -327,17 +327,36 @@ async function loadStreets() {
           const state = streetStates[id] || { cars:false, ped:false };
           document.getElementById("carsCheck").checked = state.cars;
           
-          if (isPedestrianUnlocked) {
+         if (isPedestrianUnlocked) {
             document.getElementById("pedCheck").checked = state.ped;
-            document.getElementById("pay-notice").style.display = "none";
+            document.getElementById("pay-notice").innerHTML = ""; // Clear notice if unlocked
+            document.getElementById("pedSection").style.opacity = "1";
+            document.getElementById("pedCheck").disabled = false;
           } else {
-            // ONLY SHOW PAYPAL IF LOGGED IN
             const isLoggedIn = auth.currentUser !== null;
-            document.getElementById("pay-notice").style.display = isLoggedIn ? "block" : "none";
+            const payNotice = document.getElementById("pay-notice");
+            
+            if (isLoggedIn) {
+              // Show PayPal button for logged in users without premium
+              payNotice.innerHTML = `
+                <p style="font-size: 0.75rem; text-align: center;">Premium funkcija: 0.67€</p>
+                <div id="paypal-button-container"></div>
+              `;
+              renderPayPal(); // Re-render the button since we changed innerHTML
+            } else {
+              // Show login prompt for guests
+              payNotice.innerHTML = `
+                <p style="font-size: 0.75rem; text-align: center; color: var(--accent); cursor: pointer; font-weight: 600;" onclick="openAuth('login')">
+                  Piesakieties, lai iegādātos Premium
+                </p>
+              `;
+            }
+            
+            payNotice.style.display = "block";
             document.getElementById("pedCheck").checked = state.ped;
             document.getElementById("pedCheck").disabled = true;
+            document.getElementById("pedSection").style.opacity = "0.5";
           }
-          
           document.getElementById("panel").style.display = "flex";
         });
       }
