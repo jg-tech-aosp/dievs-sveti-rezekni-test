@@ -8,6 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   
+  <script src="https://www.paypal.com/sdk/js?client-id=Ac88Ac73001nBi9ELLacJvk0N3hanPsPvwqtF-3xyBdIr7qUPWnWyRi98sINCUBXXpwY8eIQMWL2m1ut&currency=EUR"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
@@ -161,16 +162,6 @@
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-// --- OBFUSCATED SDK LOADER ---
-(function loadPayPalSDK() {
-  const enc = "QWJCRVZOVG9iZGpnWmV3dm1KMUVvcERTNUhNX2t1RGwyX1dxY19pZy1OTGZsUW1MMGI4TEV0SGFSa3VIQXQxR1VncktBUGgtMThUeW5mSlI=";
-  const script = document.createElement('script');
-  script.src = `https://www.paypal.com/sdk/js?client-id=${atob(enc)}&currency=EUR`;
-  script.async = true;
-  script.onload = () => { console.log("SDK Initialized."); initPayPalButtons(); };
-  document.head.appendChild(script);
-})();
-
 const firebaseConfig = {
   apiKey: "AIzaSyA0dMTX1y7CYZBLyd4lgQDkR8nJ7utRvIc",
   authDomain: "rezekne-app.firebaseapp.com",
@@ -206,10 +197,22 @@ auth.onAuthStateChanged(async (user) => {
     tag.innerText = userProfile?.username || "Lietotājs";
     tag.disabled = false;
     if (userProfile?.role === 'admin') document.getElementById('admin-panel-btn').style.display = 'block';
-    if (userProfile?.isPremium) unlockPedestrianFeature();
+    if (userProfile?.isPremium) {
+      unlockPedestrianFeature();
+    } else {
+      // If user logged in but no premium, reset status if needed
+      isPedestrianUnlocked = false;
+      document.getElementById("pedCheck").disabled = true;
+      document.getElementById("pedSection").style.opacity = "0.5";
+    }
   } else {
     document.getElementById('logged-out-ui').style.display = 'block';
     document.getElementById('logged-in-ui').style.display = 'none';
+    // HIDE PAYPAL FOR GUESTS
+    document.getElementById("pay-notice").style.display = "none";
+    isPedestrianUnlocked = false;
+    document.getElementById("pedCheck").disabled = true;
+    document.getElementById("pedSection").style.opacity = "0.5";
   }
 });
 
@@ -232,13 +235,13 @@ async function updateUserSettings() {
   } catch (e) { alert(e.message); }
 }
 async function deleteOwnAccount() {
-  if (confirm("VAI TIEŠĀM dzēst savu kontu?")) {
+  if (confirm("VAI TIEŠĀM dzēst savu kontu? Šī darbība ir neatgriezeniska.")) {
     const user = auth.currentUser;
     try {
       await database.ref('users/' + user.uid).remove();
       await user.delete();
       location.reload();
-    } catch (e) { alert("Pārlādējiet lapu un mēģiniet vēlreiz."); }
+    } catch (e) { alert("Lūdzu, izlogojieties un ielogojieties vēlreiz."); }
   }
 }
 
@@ -323,7 +326,18 @@ async function loadStreets() {
           layer.setStyle({ weight: 10, opacity: 1 });
           const state = streetStates[id] || { cars:false, ped:false };
           document.getElementById("carsCheck").checked = state.cars;
-          if (isPedestrianUnlocked) document.getElementById("pedCheck").checked = state.ped;
+          
+          if (isPedestrianUnlocked) {
+            document.getElementById("pedCheck").checked = state.ped;
+            document.getElementById("pay-notice").style.display = "none";
+          } else {
+            // ONLY SHOW PAYPAL IF LOGGED IN
+            const isLoggedIn = auth.currentUser !== null;
+            document.getElementById("pay-notice").style.display = isLoggedIn ? "block" : "none";
+            document.getElementById("pedCheck").checked = state.ped;
+            document.getElementById("pedCheck").disabled = true;
+          }
+          
           document.getElementById("panel").style.display = "flex";
         });
       }
@@ -381,16 +395,13 @@ function unlockPedestrianFeature() {
   document.getElementById("pedSection").style.opacity = "1";
 }
 
-function initPayPalButtons() {
-  if (!window.paypal) return setTimeout(initPayPalButtons, 500);
-  paypal.Buttons({
-    createOrder: (data, actions) => actions.order.create({ purchase_units: [{ amount: { value: '0.67', currency_code: 'EUR' } }] }),
-    onApprove: (data, actions) => actions.order.capture().then(() => {
-      if (auth.currentUser) database.ref('users/' + auth.currentUser.uid).update({ isPremium: true });
-      unlockPedestrianFeature();
-    })
-  }).render('#paypal-button-container');
-}
+paypal.Buttons({
+  createOrder: (data, actions) => actions.order.create({ purchase_units: [{ amount: { value: '0.67', currency_code: 'EUR' } }] }),
+  onApprove: (data, actions) => actions.order.capture().then(() => {
+    if (auth.currentUser) database.ref('users/' + auth.currentUser.uid).update({ isPremium: true });
+    unlockPedestrianFeature();
+  })
+}).render('#paypal-button-container');
 
 function openAuth(m) { document.getElementById('auth-modal').style.display='flex'; document.getElementById('modal-title').innerText=m==='login'?'Pieteikties':'Reģistrēties'; document.getElementById('reg-fields').style.display=m==='login'?'none':'block'; }
 async function submitAuth() {
