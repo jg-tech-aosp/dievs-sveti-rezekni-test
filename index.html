@@ -554,7 +554,7 @@ async function deleteAdminUser(uid) { if (confirm("Dzēst?")) { await database.r
 function resetMap() { if (confirm("Atiestatīt VISU karti?")) database.ref('streets').remove(); }
 
 // --- MAP & SEARCH ---
-const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([56.5100, 27.3400], 14);
+const map = L.map('map', { zoomControl: false, attributionControl: false, minZoom: 10 }).setView([56.5100, 27.3400], 14);
 const tileLayers = {
   light: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'),
   dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png')
