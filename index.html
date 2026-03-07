@@ -510,7 +510,7 @@
     </div>
   </div>
   <div class="feed-compose" id="feed-compose">
-    <textarea id="feed-text" rows="3" placeholder="Ko jauns Rēzeknē?"></textarea>
+    <textarea id="feed-text" rows="3" placeholder="Kas jauns Rēzeknē?"></textarea>
     <div class="feed-compose-actions">
       <label class="feed-photo-label" title="Pievienot foto">
         📷
@@ -627,7 +627,7 @@ async function deleteOwnAccount() {
       await database.ref('users/' + user.uid).remove();
       await user.delete();
       location.reload();
-    } catch (e) { alert("Lūdzu, izlogojieties un ielogojieties vēlreiz."); }
+    } catch (e) { alert("Lūdzu, izejiet un pierakstaties vēlreiz."); }
   }
 }
 
@@ -803,7 +803,7 @@ function applyStatus() {
     guestEdits++; localStorage.setItem('guest_edits', guestEdits);
   }
   if (userProfile?.bannedDraw) {
-    alert("⛔ Jūs esat aizliegts atzīmēt ielas.");
+    alert("⛔ Jums ir aizliegts atzīmēt ielas.");
     return;
   }
   const id = selectedLayer.feature.properties.id;
@@ -890,7 +890,7 @@ async function submitPost() {
   if (!text && !feedPhotoBase64) return;
   if (!auth.currentUser) return;
   if (userProfile?.bannedPost) {
-    alert("⛔ Jūs esat aizliegts publicēt ziņas.");
+    alert("⛔ Jums ir aizliegts publicēt ziņas.");
     return;
   }
 
@@ -973,7 +973,7 @@ function loadComments(postId) {
 async function submitComment(postId) {
   if (!auth.currentUser) return openAuth('login');
   if (userProfile?.bannedPost) {
-    alert("⛔ Jūs esat aizliegts publicēt ziņas.");
+    alert("⛔ Jums ir aizliegts publicēt ziņas.");
     return;
   }
   const input = document.getElementById(`comment-input-${postId}`);
