@@ -7,17 +7,42 @@
   
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
 
   <style>
-    /* ... (Keeping your CSS exactly the same) ... */
-    :root { --bg-panel: rgba(255, 255, 255, 0.9); --text-main: #1c1c1e; --accent: #007AFF; --border: rgba(0, 0, 0, 0.08); --input-bg: rgba(0, 0, 0, 0.04); --shadow: 0 8px 32px rgba(0,0,0,0.12); }
-    [data-theme="dark"] { --bg-panel: rgba(28, 28, 30, 0.8); --text-main: #ffffff; --accent: #0A84FF; --border: rgba(255, 255, 255, 0.1); --input-bg: rgba(255, 255, 255, 0.08); --shadow: 0 12px 40px rgba(0,0,0,0.5); }
+    :root {
+      --bg-panel: rgba(255, 255, 255, 0.9);
+      --text-main: #1c1c1e;
+      --accent: #007AFF;
+      --border: rgba(0, 0, 0, 0.08);
+      --input-bg: rgba(0, 0, 0, 0.04);
+      --shadow: 0 8px 32px rgba(0,0,0,0.12);
+    }
+    [data-theme="dark"] {
+      --bg-panel: rgba(28, 28, 30, 0.8);
+      --text-main: #ffffff;
+      --accent: #0A84FF;
+      --border: rgba(255, 255, 255, 0.1);
+      --input-bg: rgba(255, 255, 255, 0.08);
+      --shadow: 0 12px 40px rgba(0,0,0,0.5);
+    }
+
     body { margin: 0; padding: 0; overflow: hidden; font-family: 'Inter', sans-serif; background: #000; }
     #map { height: 100vh; width: 100vw; z-index: 1; }
+
+    /* UI Components */
     .auth-nav { position: absolute; top: 20px; left: 20px; z-index: 1000; display: flex; gap: 10px; }
     .auth-btn { background: var(--bg-panel); color: var(--text-main); border: 1px solid var(--border); padding: 10px 16px; border-radius: 12px; cursor: pointer; font-weight: 600; backdrop-filter: blur(10px); box-shadow: var(--shadow); transition: 0.2s; }
+    
     #user-tag:not([disabled]) { border-color: var(--accent); cursor: pointer; }
+    #user-tag:not([disabled]):hover { background: var(--input-bg); }
+
     .theme-toggle { position: absolute; top: 20px; right: 20px; z-index: 1000; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; width: 44px; height: 44px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow); font-size: 1.2rem; }
+
+    /* Search & Location Controls */
     .map-controls { position: absolute; top: 80px; left: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
     .search-box { position: relative; width: 250px; }
     #streetSearch { width: 100%; padding: 12px 15px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-panel); color: var(--text-main); backdrop-filter: blur(10px); box-shadow: var(--shadow); box-sizing: border-box; }
@@ -25,17 +50,24 @@
     .search-item { padding: 10px 15px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 0.9rem; color: var(--text-main); }
     .search-item:hover { background: var(--input-bg); }
     .control-btn { width: 44px; height: 44px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; box-shadow: var(--shadow); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; backdrop-filter: blur(10px); }
+
+    /* Modals */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(8px); }
     .modal-card { background: var(--bg-panel); padding: 30px; border-radius: 24px; color: var(--text-main); border: 1px solid var(--border); box-shadow: var(--shadow); width: 320px; }
     .modal-card input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 12px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text-main); box-sizing: border-box; }
     .label-hint { font-size: 0.75rem; opacity: 0.6; margin-top: 10px; display: block; }
+
+    /* Admin Dashboard */
     .admin-card { width: 90%; max-width: 600px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column; }
     .user-list { overflow-y: auto; flex: 1; margin-top: 15px; }
     .user-row { background: var(--input-bg); padding: 15px; border-radius: 16px; margin-bottom: 10px; border: 1px solid var(--border); }
     .btn-small { padding: 6px 12px; border-radius: 8px; border: none; font-size: 0.75rem; cursor: pointer; font-weight: 700; transition: 0.2s; }
+
+    /* Control Panel */
     .control-panel { position: absolute; z-index: 1000; background: var(--bg-panel); backdrop-filter: blur(20px); border: 1px solid var(--border); box-shadow: var(--shadow); color: var(--text-main); display: flex; flex-direction: column; max-height: 85vh; }
     @media (min-width: 601px) { .control-panel { bottom: 30px; left: 30px; width: 340px; border-radius: 24px; padding: 24px; } }
     @media (max-width: 600px) { .control-panel { bottom: 20px; left: 5%; right: 5%; width: 90%; border-radius: 28px; padding: 20px; box-sizing: border-box; } }
+
     .option-card { display: flex; align-items: center; padding: 14px; margin: 6px 0; background: var(--input-bg); border-radius: 16px; }
     .btn-apply { background: var(--accent); color: white; border: none; padding: 16px; border-radius: 16px; width: 100%; font-weight: 700; cursor: pointer; margin-top: 10px; }
     .btn-danger { background: none; border: none; color: #FF3B30; cursor: pointer; font-size: 0.8rem; text-decoration: underline; width: 100%; margin-top: 20px; }
@@ -82,10 +114,17 @@
 
 <div class="modal-overlay" id="settings-modal">
   <div class="modal-card">
-    <div style="display:flex; justify-content:space-between; align-items:center;"><h2 style="margin:0;">Iestatījumi</h2><button onclick="closeSettings()" class="btn-small">X</button></div>
-    <span class="label-hint">Lietotājvārds</span><input type="text" id="settings-username">
-    <span class="label-hint">Dzimšanas datums</span><input type="date" id="settings-dob">
-    <div id="settings-stats" style="margin:15px 0; padding:12px; background:var(--input-bg); border-radius:12px; font-size:0.9rem;">Statuss: <span id="settings-premium-badge">Parasts</span></div>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h2 style="margin:0;">Iestatījumi</h2>
+      <button onclick="closeSettings()" class="btn-small">X</button>
+    </div>
+    <span class="label-hint">Lietotājvārds</span>
+    <input type="text" id="settings-username">
+    <span class="label-hint">Dzimšanas datums</span>
+    <input type="date" id="settings-dob">
+    <div id="settings-stats" style="margin:15px 0; padding:12px; background:var(--input-bg); border-radius:12px; font-size:0.9rem;">
+      Statuss: <span id="settings-premium-badge">Parasts</span>
+    </div>
     <button class="btn-apply" onclick="updateUserSettings()">Saglabāt izmaiņas</button>
     <button class="btn-danger" onclick="deleteOwnAccount()">Dzēst manu kontu</button>
   </div>
@@ -93,10 +132,15 @@
 
 <div id="admin-dashboard" class="modal-overlay">
   <div class="modal-card admin-card">
-    <div style="display:flex; justify-content:space-between; align-items:center;"><h2 style="margin:0;">Lietotāju Kontrole</h2><button onclick="closeAdminDashboard()" class="auth-btn">X</button></div>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h2 style="margin:0;">Lietotāju Kontrole</h2>
+      <button onclick="closeAdminDashboard()" class="auth-btn">X</button>
+    </div>
     <input type="text" id="adminSearch" placeholder="Meklēt lietotāju..." oninput="renderUserList()" style="margin-top:15px;">
     <div id="user-list" class="user-list"></div>
-    <div style="margin-top:20px; border-top: 1px solid var(--border); padding-top:15px;"><button onclick="resetMap()" style="background:#FF3B30;" class="btn-apply">Atiestatīt visu karti</button></div>
+    <div style="margin-top:20px; border-top: 1px solid var(--border); padding-top:15px;">
+      <button onclick="resetMap()" style="background:#FF3B30;" class="btn-apply">Atiestatīt visu karti</button>
+    </div>
   </div>
 </div>
 
@@ -116,228 +160,255 @@
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+// --- OBFUSCATED SDK LOADER ---
+(function loadPayPalSDK() {
+  const enc = "QWJCRVZOVG9iZGpnWmV3dm1KMUVvcERTNUhNX2t1RGwyX1dxY19pZy1OTGZsUW1MMGI4TEV0SGFSa3VIQXQxR1VncktBUGgtMThUeW5mSlI=";
+  const script = document.createElement('script');
+  script.src = `https://www.paypal.com/sdk/js?client-id=${atob(enc)}&currency=EUR`;
+  script.async = true;
+  script.onload = () => { console.log("SDK Initialized."); initPayPalButtons(); };
+  document.head.appendChild(script);
+})();
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-  import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, deleteUser } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
-  import { getDatabase, ref, set, update, onValue, get, remove } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-database.js";
+const firebaseConfig = {
+  apiKey: "AIzaSyA0dMTX1y7CYZBLyd4lgQDkR8nJ7utRvIc",
+  authDomain: "rezekne-app.firebaseapp.com",
+  databaseURL: "https://rezekne-app-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "rezekne-app",
+  storageBucket: "rezekne-app.firebasestorage.app",
+  messagingSenderId: "364360316305",
+  appId: "1:364360316305:web:d75b3b082c0cb8ef819630"
+};
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyA0dMTX1y7CYZBLyd4lgQDkR8nJ7utRvIc",
-    authDomain: "rezekne-app.firebaseapp.com",
-    databaseURL: "https://rezekne-app-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "rezekne-app",
-    storageBucket: "rezekne-app.firebasestorage.app",
-    messagingSenderId: "364360316305",
-    appId: "1:364360316305:web:d75b3b082c0cb8ef819630"
-  };
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+const auth = firebase.auth();
 
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const database = getDatabase(app);
+let userProfile = null;
+let allUsers = {};
+let allStreetData = [];
+let guestEdits = parseInt(localStorage.getItem('guest_edits')) || 0;
+let isPedestrianUnlocked = false;
+let streetStates = {};
+let streetLayersById = {};
+let selectedLayer = null;
+let currentTheme = localStorage.getItem('theme') || 'light';
 
-  let userProfile = null;
-  let allUsers = {};
-  let allStreetData = [];
-  let guestEdits = parseInt(localStorage.getItem('guest_edits')) || 0;
-  let isPedestrianUnlocked = false;
-  let streetStates = {};
-  let streetLayersById = {};
-  let selectedLayer = null;
-  let currentTheme = localStorage.getItem('theme') || 'light';
+// --- AUTH STATE ---
+auth.onAuthStateChanged(async (user) => {
+  if (user) {
+    const snapshot = await database.ref('users/' + user.uid).once('value');
+    userProfile = snapshot.val();
+    document.getElementById('logged-out-ui').style.display = 'none';
+    document.getElementById('logged-in-ui').style.display = 'block';
+    const tag = document.getElementById('user-tag');
+    tag.innerText = userProfile?.username || "Lietotājs";
+    tag.disabled = false;
+    if (userProfile?.role === 'admin') document.getElementById('admin-panel-btn').style.display = 'block';
+    if (userProfile?.isPremium) unlockPedestrianFeature();
+  } else {
+    document.getElementById('logged-out-ui').style.display = 'block';
+    document.getElementById('logged-in-ui').style.display = 'none';
+  }
+});
 
-  // --- NEW: GLOBAL PAYPAL BUTTON INITIALIZER ---
-  window.initPayPalButtons = function() {
-    if (!window.paypal) {
-      setTimeout(window.initPayPalButtons, 500);
-      return;
-    }
-    const container = document.getElementById('paypal-button-container');
-    if (!container || container.innerHTML !== "") return; // Prevent double render
-
-    window.paypal.Buttons({
-      createOrder: (data, actions) => actions.order.create({ purchase_units: [{ amount: { value: '0.67', currency_code: 'EUR' } }] }),
-      onApprove: (data, actions) => actions.order.capture().then(async () => {
-        if (auth.currentUser) await update(ref(database, 'users/' + auth.currentUser.uid), { isPremium: true });
-        unlockPedestrianFeature();
-      })
-    }).render('#paypal-button-container');
-  };
-
-  // --- OBFUSCATED SDK LOADER ---
-  (function loadPayPalSDK() {
-    const enc = "QWM4OEFjNzMwMDFuQmk5RUxsYWNKdmswTjNoYW5Qc1B2d3F0Ri0zeHlCZElyN3FVUFduV3lSaTk4c0lOQ1VCWFhwdzhlSVFNV0wybTF1dA==";
-    const script = document.createElement('script');
-    script.src = `https://www.paypal.com/sdk/js?client-id=${atob(enc)}&currency=EUR`;
-    script.async = true;
-    script.onload = () => { window.initPayPalButtons(); };
-    document.head.appendChild(script);
-  })();
-
-  onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      const snapshot = await get(ref(database, 'users/' + user.uid));
-      userProfile = snapshot.val();
-      document.getElementById('logged-in-ui').style.display = 'block';
-      document.getElementById('logged-out-ui').style.display = 'none';
-      document.getElementById('user-tag').innerText = userProfile?.username || "Lietotājs";
-      if (userProfile?.role === 'admin') document.getElementById('admin-panel-btn').style.display = 'block';
-      if (userProfile?.isPremium) unlockPedestrianFeature();
-      window.initPayPalButtons(); // Check buttons on login
-    } else {
-      document.getElementById('logged-out-ui').style.display = 'block';
-      document.getElementById('logged-in-ui').style.display = 'none';
-    }
-  });
-
-  // --- WINDOW ATTACHMENTS FOR HTML BUTTONS ---
-  window.openAuth = (m) => {
-    document.getElementById('auth-modal').style.display='flex';
-    document.getElementById('modal-title').innerText=m==='login'?'Pieteikties':'Reģistrēties';
-    document.getElementById('reg-fields').style.display=m==='login'?'none':'block';
-  };
-  window.closeAuth = () => document.getElementById('auth-modal').style.display='none';
-  window.handleLogout = () => signOut(auth).then(() => location.reload());
-  window.submitAuth = async () => {
-    const email = document.getElementById('email').value, pass = document.getElementById('password').value;
-    const isReg = document.getElementById('reg-fields').style.display === 'block';
+// --- SETTINGS ---
+function openSettings() {
+  if (!userProfile) return;
+  document.getElementById('settings-modal').style.display = 'flex';
+  document.getElementById('settings-username').value = userProfile.username || "";
+  document.getElementById('settings-dob').value = userProfile.dob || "";
+  document.getElementById('settings-premium-badge').innerText = userProfile.isPremium ? "Premium ✨" : "Bezmaksas";
+}
+function closeSettings() { document.getElementById('settings-modal').style.display = 'none'; }
+async function updateUserSettings() {
+  try {
+    await database.ref('users/' + auth.currentUser.uid).update({
+      username: document.getElementById('settings-username').value,
+      dob: document.getElementById('settings-dob').value
+    });
+    alert("Saglabāts!"); location.reload();
+  } catch (e) { alert(e.message); }
+}
+async function deleteOwnAccount() {
+  if (confirm("VAI TIEŠĀM dzēst savu kontu?")) {
+    const user = auth.currentUser;
     try {
-      if (isReg) {
-        const res = await createUserWithEmailAndPassword(auth, email, pass);
-        await set(ref(database, 'users/' + res.user.uid), { username: document.getElementById('username').value, dob: document.getElementById('dob').value, role: 'user', isPremium: false });
-      } else { await signInWithEmailAndPassword(auth, email, pass); }
-      window.closeAuth();
-    } catch (e) { alert(e.message); }
-  };
-
-  window.openSettings = () => {
-    if (!userProfile) return;
-    document.getElementById('settings-modal').style.display = 'flex';
-    document.getElementById('settings-username').value = userProfile.username;
-    document.getElementById('settings-dob').value = userProfile.dob;
-    document.getElementById('settings-premium-badge').innerText = userProfile.isPremium ? "Premium ✨" : "Bezmaksas";
-  };
-  window.closeSettings = () => document.getElementById('settings-modal').style.display = 'none';
-  window.updateUserSettings = async () => {
-    await update(ref(database, 'users/' + auth.currentUser.uid), { username: document.getElementById('settings-username').value, dob: document.getElementById('settings-dob').value });
-    location.reload();
-  };
-
-  // --- MAP LOGIC ---
-  const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([56.5100, 27.3400], 14);
-  const tileLayers = {
-    light: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'),
-    dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png')
-  };
-  function setTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
-    Object.values(tileLayers).forEach(l => map.removeLayer(l));
-    tileLayers[theme].addTo(map);
-    document.getElementById('themeBtn').innerHTML = theme === 'light' ? '🌙' : '☀️';
+      await database.ref('users/' + user.uid).remove();
+      await user.delete();
+      location.reload();
+    } catch (e) { alert("Pārlādējiet lapu un mēģiniet vēlreiz."); }
   }
-  setTheme(currentTheme);
-  window.toggleTheme = () => { currentTheme = currentTheme === 'light' ? 'dark' : 'light'; localStorage.setItem('theme', currentTheme); setTheme(currentTheme); };
+}
 
-  onValue(ref(database, 'streets'), (snap) => {
-    streetStates = snap.val() || {};
-    for (let id in streetLayersById) {
-      if (streetStates[id]) streetLayersById[id].setStyle({ color: getColor(streetStates[id]) });
+// --- ADMIN ---
+async function openAdminDashboard() {
+  document.getElementById('admin-dashboard').style.display = 'flex';
+  const snapshot = await database.ref('users').once('value');
+  allUsers = snapshot.val() || {};
+  renderUserList();
+}
+function renderUserList() {
+  const list = document.getElementById('user-list');
+  const search = document.getElementById('adminSearch').value.toLowerCase();
+  list.innerHTML = "";
+  for (let uid in allUsers) {
+    const u = allUsers[uid];
+    if (u.username?.toLowerCase().includes(search)) {
+      const row = document.createElement('div');
+      row.className = 'user-row';
+      row.innerHTML = `<div style="font-weight:700;">${u.username} (${u.dob})</div>
+        <div class="user-controls" style="display:flex; gap:8px; margin-top:10px;">
+          <button class="btn-small" style="background:${u.isPremium ? '#34C759' : '#8E8E93'}; color:white;" onclick="updateAdminUser('${uid}', {isPremium: ${!u.isPremium}})">${u.isPremium ? 'Noņemt Premium' : 'Dot Premium'}</button>
+          <button class="btn-small" style="background:#FF3B30; color:white;" onclick="deleteAdminUser('${uid}')">Dzēst</button>
+        </div>`;
+      list.appendChild(row);
     }
-  });
-
-  function getColor(state) {
-    if (!state) return "#94a3b8";
-    if (state.cars && state.ped) return "#ef4444";
-    if (state.cars) return "#f59e0b";
-    if (state.ped) return "#8b5cf6";
-    return "#3b82f6";
   }
+}
+async function updateAdminUser(uid, data) { await database.ref('users/' + uid).update(data); openAdminDashboard(); }
+async function deleteAdminUser(uid) { if (confirm("Dzēst?")) { await database.ref('users/' + uid).remove(); openAdminDashboard(); } }
+function resetMap() { if (confirm("Atiestatīt VISU karti?")) database.ref('streets').remove(); }
 
-  async function loadStreets() {
-    const q = `[out:json][timeout:25];(way["highway"~"trunk|primary|secondary|tertiary|residential|unclassified|living_street"](56.45,27.25,56.55,27.42););out geom;`;
-    const res = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: q });
+// --- MAP & SEARCH ---
+const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([56.5100, 27.3400], 14);
+const tileLayers = {
+  light: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'),
+  dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png')
+};
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  Object.values(tileLayers).forEach(l => map.removeLayer(l));
+  tileLayers[theme].addTo(map);
+  document.getElementById('themeBtn').innerHTML = theme === 'light' ? '🌙' : '☀️';
+  localStorage.setItem('theme', theme);
+  currentTheme = theme;
+}
+setTheme(currentTheme);
+
+function getColor(state) {
+  if (!state) return "#94a3b8";
+  if (state.cars && state.ped) return "#ef4444";
+  if (state.cars) return "#f59e0b";
+  if (state.ped) return "#8b5cf6";
+  return "#3b82f6";
+}
+
+database.ref('streets').on('value', (snapshot) => {
+  streetStates = snapshot.val() || {};
+  for (let id in streetLayersById) {
+    if (streetStates[id]) streetLayersById[id].setStyle({ color: getColor(streetStates[id]) });
+  }
+});
+
+async function loadStreets() {
+  const query = `[out:json][timeout:25];(way["highway"~"trunk|primary|secondary|tertiary|residential|unclassified|living_street"](56.45,27.25,56.55,27.42););out geom;`;
+  try {
+    const res = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: query });
     const data = await res.json();
-    allStreetData = data.elements.filter(el => el.tags?.name);
-    L.geoJSON(allStreetData.map(el => ({ type: "Feature", geometry: { type: "LineString", coordinates: el.geometry.map(g => [g.lon, g.lat]) }, properties: { id: el.id, name: el.tags.name } })), {
+    allStreetData = data.elements.filter(el => el.tags && el.tags.name);
+    
+    L.geoJSON(data.elements.map(el => ({
+      type: "Feature", geometry: { type: "LineString", coordinates: el.geometry.map(g => [g.lon, g.lat]) },
+      properties: { id: el.id, name: el.tags?.name || "Nezināma iela" }
+    })), {
       style: f => ({ color: getColor(streetStates[f.properties.id]), weight: 6, opacity: 0.8, lineCap: 'round' }),
       onEachFeature: (f, layer) => {
-        streetLayersById[f.properties.id] = layer;
+        const id = f.properties.id;
+        streetLayersById[id] = layer;
         layer.on("click", () => {
           if(selectedLayer) selectedLayer.setStyle({ weight: 6, opacity: 0.8 });
           selectedLayer = layer;
           layer.setStyle({ weight: 10, opacity: 1 });
-          const state = streetStates[f.properties.id] || { cars:false, ped:false };
+          const state = streetStates[id] || { cars:false, ped:false };
           document.getElementById("carsCheck").checked = state.cars;
           if (isPedestrianUnlocked) document.getElementById("pedCheck").checked = state.ped;
           document.getElementById("panel").style.display = "flex";
-          window.initPayPalButtons(); // Ensure buttons render when panel opens
         });
       }
     }).addTo(map);
-  }
+  } catch (e) { console.error(e); }
+}
 
-  window.handleSearch = () => {
-    const q = document.getElementById('streetSearch').value.toLowerCase();
-    const resDiv = document.getElementById('search-results');
-    if (q.length < 2) { resDiv.style.display = 'none'; return; }
-    const matches = allStreetData.filter(s => s.tags.name.toLowerCase().includes(q)).slice(0, 5);
+function handleSearch() {
+  const query = document.getElementById('streetSearch').value.toLowerCase();
+  const resDiv = document.getElementById('search-results');
+  if (query.length < 2) { resDiv.style.display = 'none'; return; }
+  const matches = allStreetData.filter(s => s.tags.name.toLowerCase().includes(query)).slice(0, 5);
+  if (matches.length > 0) {
     resDiv.innerHTML = matches.map(m => `<div class="search-item" onclick="focusStreet('${m.id}')">${m.tags.name}</div>`).join('');
-    resDiv.style.display = matches.length ? 'block' : 'none';
-  };
+    resDiv.style.display = 'block';
+  } else { resDiv.style.display = 'none'; }
+}
 
-  window.focusStreet = (id) => {
-    const l = streetLayersById[id];
-    if (l) { map.fitBounds(l.getBounds()); l.fire('click'); document.getElementById('search-results').style.display='none'; }
-  };
-
-  window.findMyLocation = () => {
-    navigator.geolocation.getCurrentPosition(pos => {
-      const lat = pos.coords.latitude, lng = pos.coords.longitude;
-      map.setView([lat, lng], 17);
-      L.circle([lat, lng], { radius: 10, color: '#007AFF' }).addTo(map);
-    });
-  };
-
-  window.applyStatus = async () => {
-    if (!auth.currentUser && guestEdits >= 2) return window.openAuth('login');
-    if (!auth.currentUser) { guestEdits++; localStorage.setItem('guest_edits', guestEdits); }
-    const id = selectedLayer.feature.properties.id;
-    await set(ref(database, 'streets/' + id), {
-      cars: document.getElementById("carsCheck").checked,
-      ped: isPedestrianUnlocked ? document.getElementById("pedCheck").checked : (streetStates[id]?.ped || false)
-    });
-    document.getElementById("panel").style.display = "none";
-  };
-
-  function unlockPedestrianFeature() {
-    isPedestrianUnlocked = true;
-    document.getElementById("pedCheck").disabled = false;
-    document.getElementById("pay-notice").style.display = "none";
-    document.getElementById("pedSection").style.opacity = "1";
+function focusStreet(id) {
+  const layer = streetLayersById[id];
+  if (layer) {
+    map.fitBounds(layer.getBounds(), { maxZoom: 18 });
+    layer.fire('click');
+    document.getElementById('search-results').style.display = 'none';
+    document.getElementById('streetSearch').value = "";
   }
+}
 
-  // --- ADMIN LOGIC ---
-  window.openAdminDashboard = async () => {
-    document.getElementById('admin-dashboard').style.display = 'flex';
-    const snap = await get(ref(database, 'users'));
-    allUsers = snap.val() || {};
-    window.renderUserList();
-  };
-  window.renderUserList = () => {
-    const list = document.getElementById('user-list');
-    list.innerHTML = "";
-    for (let uid in allUsers) {
-      const u = allUsers[uid];
-      const row = document.createElement('div');
-      row.className = 'user-row';
-      row.innerHTML = `<div>${u.username}</div><button class="btn-small" onclick="updateAdminUser('${uid}', {isPremium:${!u.isPremium}})">${u.isPremium?'Noņemt Prem':'Dot Prem'}</button>`;
-      list.appendChild(row);
-    }
-  };
-  window.updateAdminUser = async (uid, data) => { await update(ref(database, 'users/' + uid), data); window.openAdminDashboard(); };
-  window.closeAdminDashboard = () => document.getElementById('admin-dashboard').style.display='none';
+function findMyLocation() {
+  if (!navigator.geolocation) return alert("Nav pieejams.");
+  navigator.geolocation.getCurrentPosition(pos => {
+    const lat = pos.coords.latitude, lng = pos.coords.longitude;
+    map.setView([lat, lng], 17);
+    L.circle([lat, lng], { radius: 10, color: '#007AFF' }).addTo(map).bindPopup("Tu esi šeit").openPopup();
+  }, () => alert("Atļauja liegta."));
+}
 
-  loadStreets();
+function applyStatus() {
+  if (!auth.currentUser) {
+    if (guestEdits >= 2) { alert("Piesakieties!"); return openAuth('login'); }
+    guestEdits++; localStorage.setItem('guest_edits', guestEdits);
+  }
+  const id = selectedLayer.feature.properties.id;
+  database.ref('streets/' + id).set({
+    cars: document.getElementById("carsCheck").checked,
+    ped: isPedestrianUnlocked ? document.getElementById("pedCheck").checked : (streetStates[id]?.ped || false)
+  });
+  document.getElementById("panel").style.display = "none";
+}
+
+function unlockPedestrianFeature() {
+  isPedestrianUnlocked = true;
+  document.getElementById("pedCheck").disabled = false;
+  document.getElementById("pay-notice").style.display = "none";
+  document.getElementById("pedSection").style.opacity = "1";
+}
+
+function initPayPalButtons() {
+  if (!window.paypal) return setTimeout(initPayPalButtons, 500);
+  paypal.Buttons({
+    createOrder: (data, actions) => actions.order.create({ purchase_units: [{ amount: { value: '0.67', currency_code: 'EUR' } }] }),
+    onApprove: (data, actions) => actions.order.capture().then(() => {
+      if (auth.currentUser) database.ref('users/' + auth.currentUser.uid).update({ isPremium: true });
+      unlockPedestrianFeature();
+    })
+  }).render('#paypal-button-container');
+}
+
+function openAuth(m) { document.getElementById('auth-modal').style.display='flex'; document.getElementById('modal-title').innerText=m==='login'?'Pieteikties':'Reģistrēties'; document.getElementById('reg-fields').style.display=m==='login'?'none':'block'; }
+async function submitAuth() {
+  const email = document.getElementById('email').value, pass = document.getElementById('password').value;
+  const isReg = document.getElementById('reg-fields').style.display === 'block';
+  try {
+    if (isReg) {
+      const res = await auth.createUserWithEmailAndPassword(email, pass);
+      await database.ref('users/' + res.user.uid).set({ username: document.getElementById('username').value, dob: document.getElementById('dob').value, role: 'user', isPremium: false });
+    } else { await auth.signInWithEmailAndPassword(email, pass); }
+    closeAuth();
+  } catch (e) { alert(e.message); }
+}
+function closeAuth() { document.getElementById('auth-modal').style.display='none'; }
+function closeAdminDashboard() { document.getElementById('admin-dashboard').style.display='none'; }
+function toggleTheme() { setTheme(currentTheme === 'light' ? 'dark' : 'light'); }
+function handleLogout() { auth.signOut().then(() => location.reload()); }
+loadStreets();
 </script>
 </body>
 </html>
