@@ -620,14 +620,12 @@ auth.onAuthStateChanged(async (user) => {
     if (userProfile?.isPremium) unlockPedestrianFeature();
     if (typeof updateComposeVisibility === 'function') updateComposeVisibility();
     // Watch for unread DMs
-    database.ref('dms').on('value', snap => {
+    database.ref(`user_convs/${user.uid}`).on('value', snap => {
       const val = snap.val();
-      if (!val) return;
-      const hasUnread = Object.entries(val)
-        .filter(([id]) => id.includes(user.uid))
-        .some(([, data]) => data.meta?.[user.uid]?.unread === true);
       const badge = document.getElementById('dm-unread-badge');
-      if (badge) badge.style.display = hasUnread ? 'block' : 'none';
+      if (!badge) return;
+      const hasUnread = val && Object.values(val).some(c => c.unread === true);
+      badge.style.display = hasUnread ? 'block' : 'none';
     });
   } else {
     document.getElementById('logged-out-ui').style.display = 'block';
@@ -1291,7 +1289,7 @@ function openDMChat() {
       });
       container.scrollTop = container.scrollHeight;
     }
-    database.ref(`dms/${currentDMConvId}/meta/${auth.currentUser.uid}/unread`).set(false);
+    database.ref(`user_convs/${auth.currentUser.uid}/${currentDMConvId}/unread`).set(false);
   });
 }
 
@@ -1304,9 +1302,13 @@ async function sendDM() {
   await database.ref(`dms/${currentDMConvId}/messages`).push({
     senderUID: myUID, senderName: myName, text, timestamp: Date.now()
   });
-  await database.ref(`dms/${currentDMConvId}/meta`).update({
-    [myUID]: { otherUID: currentDMOtherUID, otherName: currentDMOtherName, lastMsg: text, lastTs: Date.now(), unread: false },
-    [currentDMOtherUID]: { otherUID: myUID, otherName: myName, lastMsg: text, lastTs: Date.now(), unread: true }
+  const ts = Date.now();
+  // Store inbox entry under each user's own node
+  await database.ref(`user_convs/${myUID}/${currentDMConvId}`).set({
+    otherUID: currentDMOtherUID, otherName: currentDMOtherName, lastMsg: text, lastTs: ts, unread: false
+  });
+  await database.ref(`user_convs/${currentDMOtherUID}/${currentDMConvId}`).set({
+    otherUID: myUID, otherName: myName, lastMsg: text, lastTs: ts, unread: true
   });
   input.value = '';
 }
@@ -1323,20 +1325,14 @@ function openInbox() {
   document.getElementById('inbox-modal').style.display = 'flex';
   const list = document.getElementById('inbox-list');
   list.innerHTML = '<div style="opacity:0.4;font-size:0.85rem;padding:10px;">Ielādē...</div>';
-  if (inboxListener) { database.ref('dms').off('value', inboxListener); inboxListener = null; }
-  inboxListener = database.ref('dms').on('value', snap => {
+  if (inboxListener) { database.ref(`user_convs/${auth.currentUser.uid}`).off('value', inboxListener); inboxListener = null; }
+  inboxListener = database.ref(`user_convs/${auth.currentUser.uid}`).on('value', snap => {
     const val = snap.val();
-    const myUID = auth.currentUser?.uid;
-    if (!val || !myUID) { list.innerHTML = '<div style="opacity:0.4;font-size:0.85rem;padding:10px;">Nav sarunu.</div>'; return; }
-    const convs = Object.entries(val)
-      .filter(([id]) => id.includes(myUID))
-      .map(([id, data]) => ({ id, meta: data.meta?.[myUID] }))
-      .filter(c => c.meta)
-      .sort((a, b) => (b.meta.lastTs || 0) - (a.meta.lastTs || 0));
-    if (convs.length === 0) { list.innerHTML = '<div style="opacity:0.4;font-size:0.85rem;padding:10px;">Nav sarunu.</div>'; return; }
+    if (!val) { list.innerHTML = '<div style="opacity:0.4;font-size:0.85rem;padding:10px;">Nav sarunu.</div>'; return; }
+    const convs = Object.entries(val).sort((a, b) => (b[1].lastTs || 0) - (a[1].lastTs || 0));
     let hasUnread = false;
     list.innerHTML = '';
-    convs.forEach(({ id, meta }) => {
+    convs.forEach(([id, meta]) => {
       if (meta.unread) hasUnread = true;
       const item = document.createElement('div');
       item.className = `inbox-item${meta.unread ? ' unread' : ''}`;
@@ -1349,7 +1345,7 @@ function openInbox() {
 }
 
 function closeInbox() {
-  if (inboxListener) { database.ref('dms').off('value', inboxListener); inboxListener = null; }
+  if (inboxListener && auth.currentUser) { database.ref(`user_convs/${auth.currentUser.uid}`).off('value', inboxListener); inboxListener = null; }
   document.getElementById('inbox-modal').style.display = 'none';
 }
 
