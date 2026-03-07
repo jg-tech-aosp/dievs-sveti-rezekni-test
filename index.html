@@ -35,18 +35,17 @@
     #map { height: 100vh; width: 100vw; z-index: 1; }
 
     /* UI Components */
-    .auth-nav { position: absolute; top: 20px; left: 20px; z-index: 1000; display: flex; gap: 10px; align-items: center; flex-wrap: nowrap; max-width: calc(100vw - 80px); }
+    .auth-nav { position: absolute; top: 20px; left: 20px; z-index: 1000; display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; }
     .auth-btn { background: var(--bg-panel); color: var(--text-main); border: 1px solid var(--border); padding: 10px 16px; border-radius: 12px; cursor: pointer; font-weight: 600; backdrop-filter: blur(10px); box-shadow: var(--shadow); transition: 0.2s; white-space: nowrap; }
-    .hamburger-btn { display: none; }
+    #logged-in-ui { display: flex; gap: 8px; align-items: center; }
     .nav-icon-group { display: flex; gap: 8px; align-items: center; }
-    .nav-dropdown { display: none; position: absolute; top: 60px; left: 0; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; padding: 10px; box-shadow: var(--shadow); backdrop-filter: blur(20px); flex-direction: column; gap: 8px; z-index: 1001; min-width: 180px; }
+    .hamburger-wrap { display: none; }
+    .nav-dropdown { display: none; position: absolute; top: 54px; left: 0; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; padding: 10px; box-shadow: var(--shadow); backdrop-filter: blur(20px); flex-direction: column; gap: 8px; z-index: 1002; min-width: 180px; }
     .nav-dropdown.open { display: flex; }
     .nav-dropdown .auth-btn { width: 100%; text-align: left; box-shadow: none; }
     @media (max-width: 600px) {
-      .hamburger-btn { display: flex; }
       .nav-icon-group { display: none; }
-      .auth-nav { position: relative; top: 0; left: 0; margin: 10px; max-width: calc(100vw - 20px); }
-      .auth-nav-wrap { position: absolute; top: 0; left: 0; right: 0; z-index: 1000; padding: 10px; display: flex; align-items: center; gap: 8px; background: linear-gradient(to bottom, rgba(0,0,0,0.3), transparent); }
+      .hamburger-wrap { display: block; }
     }
     
     #user-tag:not([disabled]) { border-color: var(--accent); cursor: pointer; }
@@ -400,27 +399,27 @@
 <body>
 
 <div class="auth-nav" id="auth-nav">
-  <div id="logged-out-ui">
+  <div id="logged-out-ui" style="display:flex; gap:8px;">
     <button class="auth-btn" onclick="openAuth('login')">Pieteikties</button>
     <button class="auth-btn" onclick="openAuth('register')">Reģistrēties</button>
   </div>
-  <div id="logged-in-ui" style="display:none; display:contents;">
+  <div id="logged-in-ui" style="display:none; gap:8px; align-items:center;">
     <button class="auth-btn" id="user-tag" onclick="openSettings()">Ielādē...</button>
     <button class="auth-btn" onclick="handleLogout()">Iziet</button>
-    <!-- Icon buttons - hidden on mobile, shown via hamburger -->
-    <div class="nav-icon-group" id="nav-icon-group">
+    <!-- Icon buttons - hidden on mobile -->
+    <div class="nav-icon-group">
       <button class="auth-btn" id="dm-inbox-btn" onclick="openInbox()" style="position:relative;">📬 <span id="dm-unread-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#FF3B30;color:white;border-radius:50%;width:16px;height:16px;font-size:0.6rem;line-height:16px;text-align:center;">!</span></button>
       <button class="auth-btn" onclick="openNotifications()" style="position:relative;">🔔 <span id="notif-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#FF3B30;color:white;border-radius:50%;width:16px;height:16px;font-size:0.6rem;line-height:16px;text-align:center;"></span></button>
       <button class="auth-btn" onclick="openUserSearch()">🔍</button>
       <button class="auth-btn" onclick="findMyLocation()">📍</button>
       <button class="auth-btn" id="admin-panel-btn" style="display:none; background:#FF3B30; color:white;" onclick="openAdminDashboard()">Admin ⚙️</button>
     </div>
-    <!-- Hamburger button - only visible on mobile -->
-    <div style="position:relative;">
-      <button class="auth-btn hamburger-btn" onclick="toggleNavDropdown()">☰</button>
+    <!-- Hamburger - only on mobile -->
+    <div style="position:relative;" class="hamburger-wrap">
+      <button class="auth-btn" onclick="toggleNavDropdown()">☰</button>
       <div class="nav-dropdown" id="nav-dropdown">
-        <button class="auth-btn" onclick="openInbox(); toggleNavDropdown()" style="position:relative;">📬 Iesūtne <span id="dm-unread-badge-m" style="display:none;margin-left:4px;background:#FF3B30;color:white;border-radius:50%;width:16px;height:16px;font-size:0.6rem;line-height:16px;text-align:center;display:inline-block;vertical-align:middle;"></span></button>
-        <button class="auth-btn" onclick="openNotifications(); toggleNavDropdown()" style="position:relative;">🔔 Paziņojumi <span id="notif-badge-m" style="display:none;margin-left:4px;background:#FF3B30;color:white;border-radius:50%;width:16px;height:16px;font-size:0.6rem;line-height:16px;text-align:center;display:inline-block;vertical-align:middle;"></span></button>
+        <button class="auth-btn" onclick="openInbox(); toggleNavDropdown()">📬 Iesūtne <span id="dm-unread-badge-m" style="display:none;margin-left:4px;background:#FF3B30;color:white;border-radius:50%;width:16px;height:16px;font-size:0.6rem;line-height:16px;text-align:center;display:inline-block;vertical-align:middle;"></span></button>
+        <button class="auth-btn" onclick="openNotifications(); toggleNavDropdown()">🔔 Paziņojumi <span id="notif-badge-m" style="display:none;margin-left:4px;background:#FF3B30;color:white;border-radius:50%;width:16px;height:16px;font-size:0.6rem;line-height:16px;text-align:center;display:inline-block;vertical-align:middle;"></span></button>
         <button class="auth-btn" onclick="openUserSearch(); toggleNavDropdown()">🔍 Meklēt</button>
         <button class="auth-btn" onclick="findMyLocation(); toggleNavDropdown()">📍 Atrast mani</button>
         <button class="auth-btn" id="admin-panel-btn-m" style="display:none; background:#FF3B30; color:white;" onclick="openAdminDashboard(); toggleNavDropdown()">Admin ⚙️</button>
@@ -702,7 +701,7 @@ auth.onAuthStateChanged(async (user) => {
     const snapshot = await database.ref('users/' + user.uid).once('value');
     userProfile = snapshot.val();
     document.getElementById('logged-out-ui').style.display = 'none';
-    document.getElementById('logged-in-ui').style.display = 'block';
+    document.getElementById('logged-in-ui').style.display = 'flex';
     const tag = document.getElementById('user-tag');
     tag.innerText = userProfile?.username || user.displayName || "Lietotājs";
     tag.disabled = false;
