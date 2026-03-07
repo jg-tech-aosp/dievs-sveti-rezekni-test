@@ -35,8 +35,19 @@
     #map { height: 100vh; width: 100vw; z-index: 1; }
 
     /* UI Components */
-    .auth-nav { position: absolute; top: 20px; left: 20px; z-index: 1000; display: flex; gap: 10px; }
-    .auth-btn { background: var(--bg-panel); color: var(--text-main); border: 1px solid var(--border); padding: 10px 16px; border-radius: 12px; cursor: pointer; font-weight: 600; backdrop-filter: blur(10px); box-shadow: var(--shadow); transition: 0.2s; }
+    .auth-nav { position: absolute; top: 20px; left: 20px; z-index: 1000; display: flex; gap: 10px; align-items: center; flex-wrap: nowrap; max-width: calc(100vw - 80px); }
+    .auth-btn { background: var(--bg-panel); color: var(--text-main); border: 1px solid var(--border); padding: 10px 16px; border-radius: 12px; cursor: pointer; font-weight: 600; backdrop-filter: blur(10px); box-shadow: var(--shadow); transition: 0.2s; white-space: nowrap; }
+    .hamburger-btn { display: none; }
+    .nav-icon-group { display: flex; gap: 8px; align-items: center; }
+    .nav-dropdown { display: none; position: absolute; top: 60px; left: 0; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; padding: 10px; box-shadow: var(--shadow); backdrop-filter: blur(20px); flex-direction: column; gap: 8px; z-index: 1001; min-width: 180px; }
+    .nav-dropdown.open { display: flex; }
+    .nav-dropdown .auth-btn { width: 100%; text-align: left; box-shadow: none; }
+    @media (max-width: 600px) {
+      .hamburger-btn { display: flex; }
+      .nav-icon-group { display: none; }
+      .auth-nav { position: relative; top: 0; left: 0; margin: 10px; max-width: calc(100vw - 20px); }
+      .auth-nav-wrap { position: absolute; top: 0; left: 0; right: 0; z-index: 1000; padding: 10px; display: flex; align-items: center; gap: 8px; background: linear-gradient(to bottom, rgba(0,0,0,0.3), transparent); }
+    }
     
     #user-tag:not([disabled]) { border-color: var(--accent); cursor: pointer; }
     #user-tag:not([disabled]):hover { background: var(--input-bg); }
@@ -388,24 +399,38 @@
 </head>
 <body>
 
-<div class="auth-nav">
+<div class="auth-nav" id="auth-nav">
   <div id="logged-out-ui">
     <button class="auth-btn" onclick="openAuth('login')">Pieteikties</button>
     <button class="auth-btn" onclick="openAuth('register')">Reģistrēties</button>
   </div>
-  <div id="logged-in-ui" style="display:none;">
+  <div id="logged-in-ui" style="display:none; display:contents;">
     <button class="auth-btn" id="user-tag" onclick="openSettings()">Ielādē...</button>
     <button class="auth-btn" onclick="handleLogout()">Iziet</button>
-    <button class="auth-btn" id="dm-inbox-btn" onclick="openInbox()" style="position:relative;">📬 <span id="dm-unread-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#FF3B30;color:white;border-radius:50%;width:16px;height:16px;font-size:0.6rem;line-height:16px;text-align:center;">!</span></button>
-    <button class="auth-btn" onclick="openNotifications()" style="position:relative;">🔔 <span id="notif-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#FF3B30;color:white;border-radius:50%;width:16px;height:16px;font-size:0.6rem;line-height:16px;text-align:center;"></span></button>
-    <button class="auth-btn" onclick="openUserSearch()">🔍</button>
-    <button class="auth-btn" id="admin-panel-btn" style="display:none; background:#FF3B30; color:white;" onclick="openAdminDashboard()">Admin ⚙️</button>
+    <!-- Icon buttons - hidden on mobile, shown via hamburger -->
+    <div class="nav-icon-group" id="nav-icon-group">
+      <button class="auth-btn" id="dm-inbox-btn" onclick="openInbox()" style="position:relative;">📬 <span id="dm-unread-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#FF3B30;color:white;border-radius:50%;width:16px;height:16px;font-size:0.6rem;line-height:16px;text-align:center;">!</span></button>
+      <button class="auth-btn" onclick="openNotifications()" style="position:relative;">🔔 <span id="notif-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#FF3B30;color:white;border-radius:50%;width:16px;height:16px;font-size:0.6rem;line-height:16px;text-align:center;"></span></button>
+      <button class="auth-btn" onclick="openUserSearch()">🔍</button>
+      <button class="auth-btn" onclick="findMyLocation()">📍</button>
+      <button class="auth-btn" id="admin-panel-btn" style="display:none; background:#FF3B30; color:white;" onclick="openAdminDashboard()">Admin ⚙️</button>
+    </div>
+    <!-- Hamburger button - only visible on mobile -->
+    <div style="position:relative;">
+      <button class="auth-btn hamburger-btn" onclick="toggleNavDropdown()">☰</button>
+      <div class="nav-dropdown" id="nav-dropdown">
+        <button class="auth-btn" onclick="openInbox(); toggleNavDropdown()" style="position:relative;">📬 Iesūtne <span id="dm-unread-badge-m" style="display:none;margin-left:4px;background:#FF3B30;color:white;border-radius:50%;width:16px;height:16px;font-size:0.6rem;line-height:16px;text-align:center;display:inline-block;vertical-align:middle;"></span></button>
+        <button class="auth-btn" onclick="openNotifications(); toggleNavDropdown()" style="position:relative;">🔔 Paziņojumi <span id="notif-badge-m" style="display:none;margin-left:4px;background:#FF3B30;color:white;border-radius:50%;width:16px;height:16px;font-size:0.6rem;line-height:16px;text-align:center;display:inline-block;vertical-align:middle;"></span></button>
+        <button class="auth-btn" onclick="openUserSearch(); toggleNavDropdown()">🔍 Meklēt</button>
+        <button class="auth-btn" onclick="findMyLocation(); toggleNavDropdown()">📍 Atrast mani</button>
+        <button class="auth-btn" id="admin-panel-btn-m" style="display:none; background:#FF3B30; color:white;" onclick="openAdminDashboard(); toggleNavDropdown()">Admin ⚙️</button>
+      </div>
+    </div>
   </div>
-  <div class="search-box" style="width:220px;">
+  <div class="search-box" style="width:200px;">
     <input type="text" id="streetSearch" placeholder="Meklēt ielu..." oninput="handleSearch()">
     <div id="search-results" class="search-results"></div>
   </div>
-  <button class="auth-btn" onclick="findMyLocation()" title="Mana atrašanās vieta">📍</button>
 </div>
 
 <div class="map-controls">
@@ -681,16 +706,20 @@ auth.onAuthStateChanged(async (user) => {
     const tag = document.getElementById('user-tag');
     tag.innerText = userProfile?.username || user.displayName || "Lietotājs";
     tag.disabled = false;
-    if (userProfile?.role === 'admin') document.getElementById('admin-panel-btn').style.display = 'block';
+    if (userProfile?.role === 'admin') {
+      document.getElementById('admin-panel-btn').style.display = 'block';
+      document.getElementById('admin-panel-btn-m').style.display = 'block';
+    }
     if (userProfile?.isPremium) unlockPedestrianFeature();
     if (typeof updateComposeVisibility === 'function') updateComposeVisibility();
     // Watch for unread DMs
     database.ref(`user_convs/${user.uid}`).on('value', snap => {
       const val = snap.val();
       const badge = document.getElementById('dm-unread-badge');
-      if (!badge) return;
+      const badgeM = document.getElementById('dm-unread-badge-m');
       const hasUnread = val && Object.values(val).some(c => c.unread === true);
-      badge.style.display = hasUnread ? 'block' : 'none';
+      if (badge) badge.style.display = hasUnread ? 'block' : 'none';
+      if (badgeM) badgeM.style.display = hasUnread ? 'inline-block' : 'none';
     });
     // Watch for unread notifications
     watchNotifBadge(user.uid);
@@ -1008,6 +1037,17 @@ async function submitAuth() {
 function closeAuth() { document.getElementById('auth-modal').style.display='none'; }
 function closeAdminDashboard() { document.getElementById('admin-dashboard').style.display='none'; }
 function toggleTheme() { setTheme(currentTheme === 'light' ? 'dark' : 'light'); }
+
+function toggleNavDropdown() {
+  document.getElementById('nav-dropdown').classList.toggle('open');
+}
+// Close dropdown when clicking outside
+document.addEventListener('click', e => {
+  const dropdown = document.getElementById('nav-dropdown');
+  if (dropdown && !dropdown.closest('.auth-nav')?.contains(e.target)) {
+    dropdown.classList.remove('open');
+  }
+});
 function handleLogout() { auth.signOut().then(() => location.reload()); }
 
 // --- BLOG FEED ---
@@ -1563,10 +1603,12 @@ function watchNotifBadge(uid) {
   database.ref(`notifications/${uid}`).on('value', snap => {
     const val = snap.val();
     const badge = document.getElementById('notif-badge');
-    if (!badge) return;
+    const badgeM = document.getElementById('notif-badge-m');
     const unread = val ? Object.values(val).filter(n => !n.read).length : 0;
-    badge.style.display = unread > 0 ? 'block' : 'none';
-    badge.innerText = unread > 9 ? '9+' : unread;
+    const display = unread > 0 ? 'block' : 'none';
+    const text = unread > 9 ? '9+' : unread;
+    if (badge) { badge.style.display = display; badge.innerText = text; }
+    if (badgeM) { badgeM.style.display = unread > 0 ? 'inline-block' : 'none'; badgeM.innerText = text; }
   });
 }
 
