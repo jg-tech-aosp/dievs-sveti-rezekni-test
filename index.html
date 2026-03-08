@@ -141,6 +141,26 @@
       transform: scale(0.92);
     }
 
+    /* DM modal card sizing */
+    .dm-modal-card {
+      width: 380px;
+    }
+    @media (max-width: 480px) {
+      .dm-modal-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: 92dvh !important;
+        border-radius: 24px 24px 0 0 !important;
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+      }
+      #dm-modal { align-items: flex-end !important; }
+    }
+
     /* DM header icon buttons — fixed size, never overflow */
     .dm-icon-btn {
       width: 36px;
@@ -163,22 +183,8 @@
     /* ← and ✕ are text, slightly smaller font */
     .dm-back-btn, .dm-x-btn { font-size: 0.9rem; font-weight: 700; }
 
-    /* Mobile DM Modal - full screen bottom sheet */
-    @media (max-width: 600px) {
-      #dm-modal .modal-card {
-        width: 100% !important;
-        max-width: 100% !important;
-        max-height: 92dvh !important;
-        border-radius: 24px 24px 0 0 !important;
-        position: fixed !important;
-        bottom: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        margin: 0 !important;
-      }
-      #dm-modal {
-        align-items: flex-end !important;
-      }
+    /* Mobile video call pip and controls */
+    @media (max-width: 480px) {
       /* Hide ✕ on mobile — back arrow is enough */
       .dm-x-btn { display: none !important; }
       /* Slightly smaller icon buttons on mobile */
@@ -636,7 +642,7 @@
 
 <!-- DM Chat Modal -->
 <div class="modal-overlay" id="dm-modal" style="display:none;">
-  <div class="modal-card" style="max-height:80vh; display:flex; flex-direction:column; overflow:hidden; width:380px;">
+  <div class="modal-card dm-modal-card" style="max-height:80vh; display:flex; flex-direction:column; overflow:hidden;">
     <div style="display:flex; justify-content:space-between; align-items:center; flex-shrink:0; gap:8px;">
       <h2 style="margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; flex:1;" id="dm-chat-title">Saruna</h2>
       <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
@@ -2000,14 +2006,21 @@ function closeVideoCallUI() {
 async function initPeerConnection(convId, isCallee) {
   peerConnection = new RTCPeerConnection(RTC_CONFIG);
   localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+  const remoteStream = new MediaStream();
   peerConnection.ontrack = e => {
+    e.streams[0].getTracks().forEach(t => {
+      if (!remoteStream.getTracks().includes(t)) remoteStream.addTrack(t);
+    });
     if (isVideoCall) {
       const rv = document.getElementById('remote-video');
-      rv.srcObject = e.streams[0];
-      document.getElementById('video-connecting-overlay').style.display = 'none';
-      document.getElementById('video-call-status').innerText = 'Savienots';
+      if (rv.srcObject !== remoteStream) rv.srcObject = remoteStream;
+      if (remoteStream.getVideoTracks().length > 0) {
+        document.getElementById('video-connecting-overlay').style.display = 'none';
+        document.getElementById('video-call-status').innerText = 'Savienots';
+      }
     } else {
-      document.getElementById('remote-audio').srcObject = e.streams[0];
+      const ra = document.getElementById('remote-audio');
+      if (ra.srcObject !== remoteStream) ra.srcObject = remoteStream;
     }
   };
   peerConnection.onicecandidate = e => {
