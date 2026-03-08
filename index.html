@@ -573,7 +573,7 @@
       </div>
     </div>
     <!-- Active call bar -->
-    <div id="call-bar" style="display:none; background:var(--input-bg); border-radius:12px; padding:10px 14px; margin-top:8px; display:none; align-items:center; justify-content:space-between; flex-shrink:0;">
+    <div id="call-bar" style="background:var(--input-bg); border-radius:12px; padding:10px 14px; margin-top:8px; display:none; align-items:center; justify-content:space-between; flex-shrink:0;">
       <div style="display:flex; align-items:center; gap:8px;">
         <span id="call-status-text" style="font-size:0.85rem; font-weight:600;">📞 Savienojas...</span>
         <span id="call-timer" style="font-size:0.8rem; opacity:0.5;"></span>
@@ -1847,8 +1847,7 @@ function showCallBar(text) {
 }
 
 function hideCallBar() {
-  const bar = document.getElementById('call-bar');
-  bar.style.display = 'none';
+  document.getElementById('call-bar').style.display = 'none';
   clearInterval(callTimerInterval);
   callTimerInterval = null;
   callSeconds = 0;
@@ -1867,14 +1866,17 @@ function startCallTimer() {
 }
 
 async function startCall() {
-  if (!auth.currentUser || !currentDMConvId) return;
+  if (!auth.currentUser || !currentDMConvId) { alert('Nav aktīvas sarunas.'); return; }
   if (peerConnection) { alert('Jau notiek zvans.'); return; }
+  showCallBar('📞 Gaida mikrofonu...');
   try {
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
   } catch (e) {
-    alert('Nevar piekļūt mikrofonam.');
+    hideCallBar();
+    alert('Nevar piekļūt mikrofonam: ' + e.message);
     return;
   }
+  showCallBar('📞 Savienojas...');
   peerConnection = new RTCPeerConnection(RTC_CONFIG);
   localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
   peerConnection.ontrack = e => { document.getElementById('remote-audio').srcObject = e.streams[0]; };
@@ -1882,9 +1884,9 @@ async function startCall() {
     if (e.candidate) database.ref(`calls/${currentDMConvId}/callerCandidates`).push(e.candidate.toJSON());
   };
   peerConnection.onconnectionstatechange = () => {
+    console.log('Call state:', peerConnection?.connectionState);
     if (peerConnection?.connectionState === 'connected') {
       showCallBar('📞 Savienots');
-      document.getElementById('call-status-text').innerText = '📞 Savienots';
       startCallTimer();
     }
     if (['disconnected','failed','closed'].includes(peerConnection?.connectionState)) hangUp();
@@ -1899,19 +1901,17 @@ async function startCall() {
     status: 'calling'
   });
   showCallBar('📞 Zvana...');
-  // Listen for answer
   database.ref(`calls/${currentDMConvId}/answer`).on('value', async snap => {
     if (snap.val() && peerConnection && !peerConnection.currentRemoteDescription) {
       await peerConnection.setRemoteDescription(new RTCSessionDescription(snap.val()));
     }
   });
-  // Listen for callee ICE candidates
   database.ref(`calls/${currentDMConvId}/calleeCandidates`).on('child_added', snap => {
-    if (peerConnection) peerConnection.addIceCandidate(new RTCIceCandidate(snap.val()));
+    if (peerConnection) peerConnection.addIceCandidate(new RTCIceCandidate(snap.val())).catch(console.error);
   });
-  // Listen for decline/hangup
   database.ref(`calls/${currentDMConvId}/status`).on('value', snap => {
-    if (snap.val() === 'declined' || snap.val() === 'ended') hangUp();
+    if (snap.val() === 'declined') { alert('Zvans noraidīts.'); hangUp(); }
+    if (snap.val() === 'ended') hangUp();
   });
 }
 
