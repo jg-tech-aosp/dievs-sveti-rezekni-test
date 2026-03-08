@@ -500,7 +500,7 @@
     <div id="profile-action-btns" style="display:flex; gap:8px; margin-bottom:12px; flex-shrink:0;">
       <button id="profile-follow-btn" class="btn-apply" style="display:none; margin:0; padding:10px; flex:1;" onclick="toggleFollow()">Sekot</button>
       <button id="profile-dm-btn-wrap" class="btn-apply" style="display:none; margin:0; padding:10px; flex:1; background:var(--input-bg); color:var(--text-main); border:1px solid var(--border);" onclick="startDMFromProfile()">💬 Sūtīt ziņu</button>
-      <button id="profile-block-btn" class="btn-apply" style="display:none; margin:0; padding:10px; background:var(--input-bg); color:#FF3B30; border:1px solid #FF3B30;" onclick="toggleBlock()">🚫 Bloķēt</button>
+      <button id="profile-block-btn" class="btn-apply" style="display:none; margin:0; padding:10px 12px; background:var(--input-bg); color:#FF3B30; border:1px solid #FF3B30; flex-shrink:0;" onclick="toggleBlock()">🚫</button>
     </div>
     <div style="font-weight:700; font-size:0.8rem; opacity:0.5; margin-bottom:8px; flex-shrink:0;">ZIŅAS</div>
     <div id="profile-posts" style="overflow-y:auto; flex:1; scrollbar-width:thin;"></div>
@@ -1423,7 +1423,7 @@ async function openProfile(uid, username) {
     // Check block status
     const blockSnap = await database.ref(`blocks/${auth.currentUser.uid}/${uid}`).once('value');
     const isBlocked = blockSnap.exists();
-    blockBtn.innerText = isBlocked ? '✅ Atbloķēt' : '🚫 Bloķēt';
+    blockBtn.innerText = isBlocked ? '✅' : '🚫';
     blockBtn.style.color = isBlocked ? 'var(--accent)' : '#FF3B30';
     blockBtn.style.border = isBlocked ? '1px solid var(--accent)' : '1px solid #FF3B30';
 
