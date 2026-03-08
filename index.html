@@ -1900,6 +1900,13 @@ async function startCall() {
     callerName: myName,
     status: 'calling'
   });
+  // Directly notify the other user
+  await database.ref(`incoming_calls/${currentDMOtherUID}`).set({
+    convId: currentDMConvId,
+    callerUID: auth.currentUser.uid,
+    callerName: myName,
+    timestamp: Date.now()
+  });
   showCallBar('📞 Zvana...');
   database.ref(`calls/${currentDMConvId}/answer`).on('value', async snap => {
     if (snap.val() && peerConnection && !peerConnection.currentRemoteDescription) {
@@ -1962,6 +1969,7 @@ function declineCall() {
   document.getElementById('incoming-call-overlay').style.display = 'none';
   if (incomingCallConvId) {
     database.ref(`calls/${incomingCallConvId}/status`).set('declined');
+    if (auth.currentUser) database.ref(`incoming_calls/${auth.currentUser.uid}`).remove();
     incomingCallConvId = null;
   }
 }
@@ -1976,21 +1984,18 @@ async function hangUp() {
     database.ref(`calls/${currentDMConvId}`).off();
     database.ref(`calls/${currentDMConvId}`).remove();
   }
+  if (auth.currentUser) database.ref(`incoming_calls/${auth.currentUser.uid}`).remove();
+  if (currentDMOtherUID) database.ref(`incoming_calls/${currentDMOtherUID}`).remove();
   incomingCallConvId = null;
 }
 
 // Listen for incoming calls globally
 function watchIncomingCalls(uid) {
-  database.ref('calls').on('child_added', async snap => {
+  database.ref(`incoming_calls/${uid}`).on('value', async snap => {
     const call = snap.val();
-    const convId = snap.key;
-    if (!call || !convId) return;
-    if (call.callerUID === uid) return; // ignore own calls
-    if (call.status !== 'calling') return;
-    // Check if this convId belongs to me by checking my convs
-    const myConvSnap = await database.ref(`user_convs/${uid}/${convId}`).once('value');
-    if (!myConvSnap.exists()) return;
-    incomingCallConvId = convId;
+    if (!call) return;
+    if (call.callerUID === uid) return;
+    incomingCallConvId = call.convId;
     document.getElementById('incoming-call-name').innerText = `${call.callerName} zvana...`;
     document.getElementById('incoming-call-overlay').style.display = 'block';
     // Auto decline after 30s
