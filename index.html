@@ -140,12 +140,25 @@
     #video-mute-btn:active, #video-cam-btn:active, #video-flip-btn:active {
       transform: scale(0.92);
     }
-    /* Mobile DM Modal - full screen */
+
+    /* DM header call buttons - compact */
+    .dm-call-btn {
+      font-size: 0.95rem;
+      padding: 5px 9px !important;
+      min-width: 34px;
+      text-align: center;
+    }
+    .dm-close-btn {
+      font-size: 0.8rem;
+      padding: 5px 8px !important;
+    }
+
+    /* Mobile DM Modal - full screen bottom sheet */
     @media (max-width: 600px) {
       #dm-modal .modal-card {
         width: 100% !important;
         max-width: 100% !important;
-        max-height: 100dvh !important;
+        max-height: 92dvh !important;
         border-radius: 24px 24px 0 0 !important;
         position: fixed !important;
         bottom: 0 !important;
@@ -156,7 +169,17 @@
       #dm-modal {
         align-items: flex-end !important;
       }
-      /* Video call local pip - bottom left on mobile */
+      /* Hide the X close button on mobile - back arrow is enough */
+      .dm-close-btn {
+        display: none !important;
+      }
+      /* Slightly smaller call buttons */
+      .dm-call-btn {
+        font-size: 0.9rem;
+        padding: 5px 8px !important;
+        min-width: 30px;
+      }
+      /* Video call local pip */
       #local-video {
         bottom: 110px !important;
         right: 12px !important;
@@ -610,13 +633,13 @@
 <!-- DM Chat Modal -->
 <div class="modal-overlay" id="dm-modal" style="display:none;">
   <div class="modal-card" style="max-height:80vh; display:flex; flex-direction:column; overflow:hidden; width:380px;">
-    <div style="display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
-      <h2 style="margin:0;" id="dm-chat-title">Saruna</h2>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <button onclick="startCall()" class="btn-small" id="call-btn" title="Audio zvans" style="font-size:1rem; padding:6px 10px;">📞</button>
-        <button onclick="startVideoCall()" class="btn-small" id="video-call-btn" title="Video zvans" style="font-size:1rem; padding:6px 10px;">🎥</button>
-        <button onclick="closeDMGoBack()" class="btn-small">←</button>
-        <button onclick="closeDM()" class="btn-small">X</button>
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-shrink:0; gap:8px;">
+      <h2 style="margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; flex:1;" id="dm-chat-title">Saruna</h2>
+      <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+        <button onclick="startCall()" class="btn-small dm-call-btn" id="call-btn" title="Audio zvans">📞</button>
+        <button onclick="startVideoCall()" class="btn-small dm-call-btn" id="video-call-btn" title="Video zvans">🎥</button>
+        <button onclick="closeDMGoBack()" class="btn-small dm-call-btn">←</button>
+        <button onclick="closeDM()" class="btn-small dm-close-btn">✕</button>
       </div>
     </div>
     <!-- Active call bar -->
@@ -2004,6 +2027,22 @@ async function initPeerConnection(convId, isCallee) {
   };
 }
 
+// Show a non-blocking notice inside the DM modal (replaces alert for call errors)
+function showDMNotice(msg) {
+  let notice = document.getElementById('dm-notice');
+  if (!notice) {
+    notice = document.createElement('div');
+    notice.id = 'dm-notice';
+    notice.style.cssText = 'background:#FF3B3022;border:1px solid #FF3B30;color:#FF3B30;border-radius:10px;padding:10px 14px;font-size:0.82rem;line-height:1.4;margin-top:8px;flex-shrink:0;';
+    const bar = document.getElementById('call-bar');
+    bar.parentNode.insertBefore(notice, bar.nextSibling);
+  }
+  notice.innerText = msg;
+  notice.style.display = 'block';
+  clearTimeout(notice._t);
+  notice._t = setTimeout(() => { notice.style.display = 'none'; }, 8000);
+}
+
 async function startCall() {
   isVideoCall = false;
   await _initiateCall(false);
@@ -2022,13 +2061,28 @@ async function _initiateCall(withVideo) {
   try {
     localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo ? { facingMode: 'user' } : false });
   } catch (e) {
-    if (!withVideo) hideCallBar();
-    alert((withVideo ? 'Nevar piekļūt kamerai/mikrofonam: ' : 'Nevar piekļūt mikrofonam: ') + e.message);
-    return;
+    if (withVideo) {
+      // Camera unavailable — fall back to audio-only; they can still see the other person
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        showDMNotice('Kamera nav pieejama — tu nesūtīsi video, bet redzēsi otru pusi.');
+      } catch (e2) {
+        const isPermission = e2.name === 'NotAllowedError' || e2.name === 'PermissionDeniedError';
+        showDMNotice(isPermission ? 'Mikrofons bloķēts. Atver pārlūka iestatījumus un atļauj piekļuvi šai lapai.' : 'Nevar piekļūt mikrofonam: ' + e2.message);
+        return;
+      }
+    } else {
+      hideCallBar();
+      const isPermission = e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError';
+      showDMNotice(isPermission ? 'Mikrofons bloķēts. Atver pārlūka iestatījumus un atļauj piekļuvi mikrofonam šai lapai.' : 'Nevar piekļūt mikrofonam: ' + e.message);
+      return;
+    }
   }
   if (withVideo) {
     openVideoCallUI(currentDMOtherName || 'Zvans');
-    document.getElementById('local-video').srcObject = localStream;
+    const lv = document.getElementById('local-video');
+    lv.srcObject = localStream.getVideoTracks().length ? localStream : null;
+    lv.style.display = localStream.getVideoTracks().length ? 'block' : 'none';
   } else {
     showCallBar('📞 Savienojas...');
     // Show upgrade-to-video button for audio calls
@@ -2098,7 +2152,7 @@ async function upgradeToVideo() {
     document.getElementById('video-call-status').innerText = 'Savienots';
     hideCallBar();
   } catch(e) {
-    alert('Nevar piekļūt kamerai: ' + e.message);
+    showDMNotice('Kamera nav pieejama: ' + e.message);
   }
 }
 
@@ -2109,16 +2163,20 @@ async function acceptCall() {
   const callData = callSnap.val();
   if (!callData) return;
   isVideoCall = incomingCallIsVideo;
-  const constraints = { audio: true, video: isVideoCall ? { facingMode: 'user' } : false };
+  // Receiver only needs audio — camera is optional, they still see the caller via ontrack
   try {
-    localStream = await navigator.mediaDevices.getUserMedia(constraints);
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
   } catch (e) {
-    alert('Nevar piekļūt ' + (isVideoCall ? 'kamerai/mikrofonam.' : 'mikrofonam.'));
+    const isPermission = e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError';
+    showDMNotice(isPermission ? 'Mikrofons bloķēts. Atver pārlūka iestatījumus un atļauj piekļuvi šai lapai.' : 'Nevar piekļūt mikrofonam: ' + e.message);
     return;
   }
   if (isVideoCall) {
     openVideoCallUI(callData.callerName || 'Video zvans');
-    document.getElementById('local-video').srcObject = localStream;
+    // No local camera on receiver side by default — hide pip
+    const lv = document.getElementById('local-video');
+    lv.srcObject = null;
+    lv.style.display = 'none';
   } else {
     showCallBar('📞 Savienots');
     document.getElementById('upgrade-to-video-btn').style.display = 'flex';
