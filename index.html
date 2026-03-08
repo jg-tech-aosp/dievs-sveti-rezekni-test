@@ -500,7 +500,7 @@
     <div id="profile-action-btns" style="display:flex; gap:8px; margin-bottom:12px; flex-shrink:0;">
       <button id="profile-follow-btn" class="btn-apply" style="display:none; margin:0; padding:10px; flex:1;" onclick="toggleFollow()">Sekot</button>
       <button id="profile-dm-btn-wrap" class="btn-apply" style="display:none; margin:0; padding:10px; flex:1; background:var(--input-bg); color:var(--text-main); border:1px solid var(--border);" onclick="startDMFromProfile()">💬 Sūtīt ziņu</button>
-      <button id="profile-block-btn" class="btn-apply" style="display:none; margin:0; padding:10px; background:var(--input-bg); color:#FF3B30; border:1px solid #FF3B30;" onclick="toggleBlock()">🚫 Bloķēt</button>
+      <button id="profile-block-btn" class="btn-apply" style="display:none; margin:0; padding:10px 12px; background:var(--input-bg); color:#FF3B30; border:1px solid #FF3B30; flex-shrink:0;" onclick="toggleBlock()">🚫</button>
     </div>
     <div style="font-weight:700; font-size:0.8rem; opacity:0.5; margin-bottom:8px; flex-shrink:0;">ZIŅAS</div>
     <div id="profile-posts" style="overflow-y:auto; flex:1; scrollbar-width:thin;"></div>
@@ -567,9 +567,18 @@
     <div style="display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
       <h2 style="margin:0;" id="dm-chat-title">Saruna</h2>
       <div style="display:flex;gap:8px;">
+        <button onclick="startCall()" class="btn-small" id="call-btn" title="Zvanīt">📞</button>
         <button onclick="closeDMGoBack()" class="btn-small">←</button>
         <button onclick="closeDM()" class="btn-small">X</button>
       </div>
+    </div>
+    <!-- Active call bar -->
+    <div id="call-bar" style="display:none; background:var(--input-bg); border-radius:12px; padding:10px 14px; margin-top:8px; display:none; align-items:center; justify-content:space-between; flex-shrink:0;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span id="call-status-text" style="font-size:0.85rem; font-weight:600;">📞 Savienojas...</span>
+        <span id="call-timer" style="font-size:0.8rem; opacity:0.5;"></span>
+      </div>
+      <button onclick="hangUp()" style="background:#FF3B30; color:white; border:none; border-radius:10px; padding:6px 14px; font-weight:700; cursor:pointer;">Beigt</button>
     </div>
     <div id="dm-messages" style="overflow-y:auto; flex:1; margin-top:12px; scrollbar-width:thin; display:flex; flex-direction:column; gap:8px;"></div>
     <div style="margin-top:8px; flex-shrink:0;">
@@ -588,6 +597,19 @@
     </div>
   </div>
 </div>
+
+<!-- Incoming Call Overlay -->
+<div id="incoming-call-overlay" style="display:none; position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:9999; background:var(--bg-panel); border:1px solid var(--border); border-radius:20px; padding:20px 28px; box-shadow:var(--shadow); backdrop-filter:blur(20px); text-align:center; min-width:260px;">
+  <div style="font-size:1.5rem; margin-bottom:6px;">📞</div>
+  <div style="font-weight:700; margin-bottom:4px;" id="incoming-call-name">Kāds zvana...</div>
+  <div style="font-size:0.8rem; opacity:0.5; margin-bottom:16px;">Ienākošais zvans</div>
+  <div style="display:flex; gap:12px; justify-content:center;">
+    <button onclick="acceptCall()" style="background:#34C759; color:white; border:none; border-radius:12px; padding:10px 24px; font-weight:700; cursor:pointer; font-size:1rem;">📞</button>
+    <button onclick="declineCall()" style="background:#FF3B30; color:white; border:none; border-radius:12px; padding:10px 24px; font-weight:700; cursor:pointer; font-size:1rem;">📵</button>
+  </div>
+</div>
+
+<audio id="remote-audio" autoplay></audio>
 
 <div id="admin-dashboard" class="modal-overlay">
   <div class="modal-card admin-card">
@@ -732,6 +754,8 @@ auth.onAuthStateChanged(async (user) => {
     watchNotifBadge(user.uid);
     // Load blocked users
     loadBlockedUsers(user.uid);
+    // Watch for incoming calls
+    watchIncomingCalls(user.uid);
   } else {
     document.getElementById('logged-out-ui').style.display = 'block';
     document.getElementById('logged-in-ui').style.display = 'none';
@@ -1423,10 +1447,9 @@ async function openProfile(uid, username) {
     // Check block status
     const blockSnap = await database.ref(`blocks/${auth.currentUser.uid}/${uid}`).once('value');
     const isBlocked = blockSnap.exists();
-    blockBtn.innerText = isBlocked ? '✅ Atbloķēt' : '🚫 Bloķēt';
+    blockBtn.innerText = isBlocked ? '✅' : '🚫';
     blockBtn.style.color = isBlocked ? 'var(--accent)' : '#FF3B30';
     blockBtn.style.border = isBlocked ? '1px solid var(--accent)' : '1px solid #FF3B30';
-    blockBtn.style.width = '30%';
 
     if (isBlocked) {
       followBtn.style.display = 'none';
@@ -1719,15 +1742,23 @@ function openDMChat() {
     container.innerHTML = '';
     const val = snap.val();
     if (val) {
+      // Mark all incoming messages as read
+      Object.entries(val).forEach(([msgId, msg]) => {
+        if (msg.senderUID !== auth.currentUser.uid && !msg.read) {
+          database.ref(`dms/${currentDMConvId}/messages/${msgId}/read`).set(true);
+        }
+      });
       Object.values(val).forEach(msg => {
         const isMine = msg.senderUID === auth.currentUser.uid;
         const wrap = document.createElement('div');
         wrap.className = `dm-bubble-wrap ${isMine ? 'sent' : 'received'}`;
         const textHTML = msg.text ? `<div class="dm-bubble ${isMine ? 'sent' : 'received'}">${msg.text}</div>` : '';
         const photoHTML = msg.photo ? `<img src="${msg.photo}" onclick="openLightbox(this.src)" style="max-width:200px; border-radius:12px; margin-top:${msg.text ? '4px' : '0'}; cursor:zoom-in; display:block;">` : '';
+        const receipt = isMine ? `<span style="font-size:0.65rem; opacity:0.5; margin-top:2px; display:block; text-align:right;">${msg.read ? '✓✓' : '✓'}</span>` : '';
         wrap.innerHTML = `
           ${textHTML}${photoHTML}
           <div class="dm-bubble-meta">${isMine ? 'Tu' : msg.senderName} · ${timeAgo(msg.timestamp)}</div>
+          ${receipt}
         `;
         container.appendChild(wrap);
       });
@@ -1778,7 +1809,7 @@ async function sendDM() {
   const myUID = auth.currentUser.uid;
   const myName = userProfile?.username || auth.currentUser.displayName || 'Lietotājs';
   await database.ref(`dms/${currentDMConvId}/messages`).push({
-    senderUID: myUID, senderName: myName, text: text || null, photo: dmPhotoBase64 || null, timestamp: Date.now()
+    senderUID: myUID, senderName: myName, text: text || null, photo: dmPhotoBase64 || null, timestamp: Date.now(), read: false
   });
   const preview = text || (dmPhotoBase64 ? '📷 Foto' : '');
   const ts = Date.now();
@@ -1798,6 +1829,173 @@ function closeDM() {
 }
 
 function closeDMGoBack() { closeDM(); openInbox(); }
+
+// --- WEBRTC CALLING ---
+let localStream = null;
+let peerConnection = null;
+let callListener = null;
+let incomingCallConvId = null;
+let callTimerInterval = null;
+let callSeconds = 0;
+
+const RTC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
+
+function showCallBar(text) {
+  const bar = document.getElementById('call-bar');
+  bar.style.display = 'flex';
+  document.getElementById('call-status-text').innerText = text;
+}
+
+function hideCallBar() {
+  const bar = document.getElementById('call-bar');
+  bar.style.display = 'none';
+  clearInterval(callTimerInterval);
+  callTimerInterval = null;
+  callSeconds = 0;
+  document.getElementById('call-timer').innerText = '';
+}
+
+function startCallTimer() {
+  callSeconds = 0;
+  clearInterval(callTimerInterval);
+  callTimerInterval = setInterval(() => {
+    callSeconds++;
+    const m = Math.floor(callSeconds / 60).toString().padStart(2, '0');
+    const s = (callSeconds % 60).toString().padStart(2, '0');
+    document.getElementById('call-timer').innerText = `${m}:${s}`;
+  }, 1000);
+}
+
+async function startCall() {
+  if (!auth.currentUser || !currentDMConvId) return;
+  if (peerConnection) { alert('Jau notiek zvans.'); return; }
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    alert('Nevar piekļūt mikrofonam.');
+    return;
+  }
+  peerConnection = new RTCPeerConnection(RTC_CONFIG);
+  localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+  peerConnection.ontrack = e => { document.getElementById('remote-audio').srcObject = e.streams[0]; };
+  peerConnection.onicecandidate = e => {
+    if (e.candidate) database.ref(`calls/${currentDMConvId}/callerCandidates`).push(e.candidate.toJSON());
+  };
+  peerConnection.onconnectionstatechange = () => {
+    if (peerConnection?.connectionState === 'connected') {
+      showCallBar('📞 Savienots');
+      document.getElementById('call-status-text').innerText = '📞 Savienots';
+      startCallTimer();
+    }
+    if (['disconnected','failed','closed'].includes(peerConnection?.connectionState)) hangUp();
+  };
+  const offer = await peerConnection.createOffer();
+  await peerConnection.setLocalDescription(offer);
+  const myName = userProfile?.username || auth.currentUser.displayName || 'Kāds';
+  await database.ref(`calls/${currentDMConvId}`).set({
+    offer: { type: offer.type, sdp: offer.sdp },
+    callerUID: auth.currentUser.uid,
+    callerName: myName,
+    status: 'calling'
+  });
+  showCallBar('📞 Zvana...');
+  // Listen for answer
+  database.ref(`calls/${currentDMConvId}/answer`).on('value', async snap => {
+    if (snap.val() && peerConnection && !peerConnection.currentRemoteDescription) {
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(snap.val()));
+    }
+  });
+  // Listen for callee ICE candidates
+  database.ref(`calls/${currentDMConvId}/calleeCandidates`).on('child_added', snap => {
+    if (peerConnection) peerConnection.addIceCandidate(new RTCIceCandidate(snap.val()));
+  });
+  // Listen for decline/hangup
+  database.ref(`calls/${currentDMConvId}/status`).on('value', snap => {
+    if (snap.val() === 'declined' || snap.val() === 'ended') hangUp();
+  });
+}
+
+async function acceptCall() {
+  document.getElementById('incoming-call-overlay').style.display = 'none';
+  if (!incomingCallConvId) return;
+  const callSnap = await database.ref(`calls/${incomingCallConvId}`).once('value');
+  const callData = callSnap.val();
+  if (!callData) return;
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    alert('Nevar piekļūt mikrofonam.');
+    return;
+  }
+  peerConnection = new RTCPeerConnection(RTC_CONFIG);
+  localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+  peerConnection.ontrack = e => { document.getElementById('remote-audio').srcObject = e.streams[0]; };
+  peerConnection.onicecandidate = e => {
+    if (e.candidate) database.ref(`calls/${incomingCallConvId}/calleeCandidates`).push(e.candidate.toJSON());
+  };
+  peerConnection.onconnectionstatechange = () => {
+    if (peerConnection?.connectionState === 'connected') {
+      showCallBar('📞 Savienots');
+      startCallTimer();
+    }
+    if (['disconnected','failed','closed'].includes(peerConnection?.connectionState)) hangUp();
+  };
+  await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
+  const answer = await peerConnection.createAnswer();
+  await peerConnection.setLocalDescription(answer);
+  await database.ref(`calls/${incomingCallConvId}/answer`).set({ type: answer.type, sdp: answer.sdp });
+  await database.ref(`calls/${incomingCallConvId}/status`).set('active');
+  // Listen for caller ICE candidates
+  database.ref(`calls/${incomingCallConvId}/callerCandidates`).on('child_added', snap => {
+    if (peerConnection) peerConnection.addIceCandidate(new RTCIceCandidate(snap.val()));
+  });
+  // Open the DM chat if not already open
+  currentDMConvId = incomingCallConvId;
+  showCallBar('📞 Savienots');
+  if (document.getElementById('dm-modal').style.display === 'none') {
+    document.getElementById('dm-modal').style.display = 'flex';
+    document.getElementById('dm-chat-title').innerText = callData.callerName;
+  }
+}
+
+function declineCall() {
+  document.getElementById('incoming-call-overlay').style.display = 'none';
+  if (incomingCallConvId) {
+    database.ref(`calls/${incomingCallConvId}/status`).set('declined');
+    incomingCallConvId = null;
+  }
+}
+
+async function hangUp() {
+  if (peerConnection) { peerConnection.close(); peerConnection = null; }
+  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  document.getElementById('remote-audio').srcObject = null;
+  hideCallBar();
+  if (currentDMConvId) {
+    database.ref(`calls/${currentDMConvId}/status`).set('ended');
+    database.ref(`calls/${currentDMConvId}`).off();
+    database.ref(`calls/${currentDMConvId}`).remove();
+  }
+  incomingCallConvId = null;
+}
+
+// Listen for incoming calls globally
+function watchIncomingCalls(uid) {
+  database.ref('calls').on('child_added', async snap => {
+    const call = snap.val();
+    if (!call || call.callerUID === uid || call.status !== 'calling') return;
+    // Check if this call is for one of my conversations
+    const convId = snap.key;
+    if (!convId.includes(uid)) return;
+    incomingCallConvId = convId;
+    document.getElementById('incoming-call-name').innerText = `${call.callerName} zvana...`;
+    document.getElementById('incoming-call-overlay').style.display = 'block';
+    // Auto decline after 30s
+    setTimeout(() => {
+      if (document.getElementById('incoming-call-overlay').style.display === 'block') declineCall();
+    }, 30000);
+  });
+}
 
 function openInbox() {
   if (!auth.currentUser) return;
