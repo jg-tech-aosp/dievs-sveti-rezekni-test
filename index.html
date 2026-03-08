@@ -1983,10 +1983,13 @@ async function hangUp() {
 function watchIncomingCalls(uid) {
   database.ref('calls').on('child_added', async snap => {
     const call = snap.val();
-    if (!call || call.callerUID === uid || call.status !== 'calling') return;
-    // Check if this call is for one of my conversations
     const convId = snap.key;
-    if (!convId.includes(uid)) return;
+    if (!call || !convId) return;
+    if (call.callerUID === uid) return; // ignore own calls
+    if (call.status !== 'calling') return;
+    // Check if this convId belongs to me by checking my convs
+    const myConvSnap = await database.ref(`user_convs/${uid}/${convId}`).once('value');
+    if (!myConvSnap.exists()) return;
     incomingCallConvId = convId;
     document.getElementById('incoming-call-name').innerText = `${call.callerName} zvana...`;
     document.getElementById('incoming-call-overlay').style.display = 'block';
