@@ -567,7 +567,8 @@
     <div style="display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
       <h2 style="margin:0;" id="dm-chat-title">Saruna</h2>
       <div style="display:flex;gap:8px;">
-        <button onclick="startCall()" class="btn-small" id="call-btn" title="Zvanīt">📞</button>
+        <button onclick="startCall('audio')" class="btn-small" title="Audio zvans">📞</button>
+        <button onclick="startCall('video')" class="btn-small" title="Video zvans">📹</button>
         <button onclick="closeDMGoBack()" class="btn-small">←</button>
         <button onclick="closeDM()" class="btn-small">X</button>
       </div>
@@ -599,7 +600,7 @@
 </div>
 
 <!-- Incoming Call Overlay -->
-<div id="incoming-call-overlay" style="display:none; position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:9999; background:var(--bg-panel); border:1px solid var(--border); border-radius:20px; padding:20px 28px; box-shadow:var(--shadow); backdrop-filter:blur(20px); text-align:center; min-width:260px;">
+<div id="incoming-call-overlay" style="display:none; position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:9999; background:var(--bg-panel); border:1px solid var(--border); border-radius:20px; padding:20px 28px; box-shadow:var(--shadow); backdrop-filter:blur(20px); text-align:center; min-width:260px; color:var(--text-main);">
   <div style="font-size:1.5rem; margin-bottom:6px;">📞</div>
   <div style="font-weight:700; margin-bottom:4px;" id="incoming-call-name">Kāds zvana...</div>
   <div style="font-size:0.8rem; opacity:0.5; margin-bottom:16px;">Ienākošais zvans</div>
@@ -612,7 +613,7 @@
 <audio id="remote-audio" autoplay></audio>
 
 <!-- Video Call Overlay -->
-<div id="video-call-overlay" style="display:none; position:fixed; inset:0; z-index:9998; background:#000; flex-direction:column; align-items:center; justify-content:center;">
+<div id="video-call-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; z-index:9998; background:#000; flex-direction:column; align-items:center; justify-content:center;">
   <!-- Remote video (full screen) -->
   <video id="remote-video" autoplay playsinline style="width:100%; height:100%; object-fit:cover; position:absolute; inset:0;"></video>
   <!-- Local video (picture-in-picture) -->
@@ -1896,18 +1897,25 @@ function startCallTimer() {
   }, 1000);
 }
 
-async function getLocalStream() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-    hasLocalVideo = true;
-    return stream;
-  } catch (e) {
+async function getLocalStream(mode) {
+  if (mode === 'video') {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      hasLocalVideo = true;
+      return stream;
+    } catch (e) {
+      // Fall back to audio if camera fails
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      hasLocalVideo = false;
+      return stream;
+    }
+  } else {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       hasLocalVideo = false;
       return stream;
-    } catch (e2) {
-      throw new Error('Nevar piekļūt mikrofonam: ' + e2.message);
+    } catch (e) {
+      throw new Error('Nevar piekļūt mikrofonam: ' + e.message);
     }
   }
 }
@@ -1915,6 +1923,7 @@ async function getLocalStream() {
 function showVideoOverlay(otherName) {
   const overlay = document.getElementById('video-call-overlay');
   overlay.style.display = 'flex';
+  overlay.style.flexDirection = 'column';
   document.getElementById('video-call-name').innerText = otherName;
   document.getElementById('remote-no-camera-name').innerText = otherName;
   isMuted = false;
@@ -1978,12 +1987,12 @@ function setupPeerConnection(convId, isCallee) {
   return peerConnection;
 }
 
-async function startCall() {
+async function startCall(mode = 'audio') {
   if (!auth.currentUser || !currentDMConvId) { alert('Nav aktīvas sarunas.'); return; }
   if (peerConnection) { alert('Jau notiek zvans.'); return; }
-  showCallBar('📞 Gaida kameru/mikrofonu...');
+  showCallBar(mode === 'video' ? '📹 Gaida kameru...' : '📞 Gaida mikrofonu...');
   try {
-    localStream = await getLocalStream();
+    localStream = await getLocalStream(mode);
   } catch (e) {
     hideCallBar();
     alert(e.message);
@@ -2034,7 +2043,7 @@ async function acceptCall() {
   const callData = callSnap.val();
   if (!callData) return;
   try {
-    localStream = await getLocalStream();
+    localStream = await getLocalStream(callData.callerHasVideo ? 'video' : 'audio');
   } catch (e) {
     alert(e.message);
     return;
