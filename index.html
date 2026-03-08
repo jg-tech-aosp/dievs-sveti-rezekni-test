@@ -611,6 +611,31 @@
 
 <audio id="remote-audio" autoplay></audio>
 
+<!-- Video Call Overlay -->
+<div id="video-call-overlay" style="display:none; position:fixed; inset:0; z-index:9998; background:#000; flex-direction:column; align-items:center; justify-content:center;">
+  <!-- Remote video (full screen) -->
+  <video id="remote-video" autoplay playsinline style="width:100%; height:100%; object-fit:cover; position:absolute; inset:0;"></video>
+  <!-- Local video (picture-in-picture) -->
+  <video id="local-video" autoplay playsinline muted style="position:absolute; bottom:100px; right:20px; width:120px; height:160px; object-fit:cover; border-radius:16px; border:2px solid rgba(255,255,255,0.3); z-index:1;"></video>
+  <!-- No camera placeholder for remote -->
+  <div id="remote-no-camera" style="display:none; position:absolute; inset:0; align-items:center; justify-content:center; flex-direction:column; color:white;">
+    <div style="font-size:4rem;">👤</div>
+    <div id="remote-no-camera-name" style="margin-top:12px; font-size:1.2rem; font-weight:700;"></div>
+    <div style="opacity:0.5; font-size:0.85rem; margin-top:4px;">Kamera izslēgta</div>
+  </div>
+  <!-- Controls -->
+  <div style="position:absolute; bottom:30px; left:50%; transform:translateX(-50%); display:flex; gap:16px; z-index:2;">
+    <button onclick="toggleMute()" id="mute-btn" style="width:56px;height:56px;border-radius:50%;border:none;background:rgba(255,255,255,0.2);color:white;font-size:1.4rem;cursor:pointer;">🎤</button>
+    <button onclick="hangUp()" style="width:64px;height:64px;border-radius:50%;border:none;background:#FF3B30;color:white;font-size:1.6rem;cursor:pointer;">📵</button>
+    <button onclick="toggleCamera()" id="camera-btn" style="width:56px;height:56px;border-radius:50%;border:none;background:rgba(255,255,255,0.2);color:white;font-size:1.4rem;cursor:pointer;">📷</button>
+  </div>
+  <!-- Call info -->
+  <div style="position:absolute; top:30px; left:50%; transform:translateX(-50%); color:white; text-align:center; z-index:2;">
+    <div id="video-call-name" style="font-size:1.1rem; font-weight:700;"></div>
+    <div id="video-call-timer" style="font-size:0.85rem; opacity:0.6; margin-top:4px;"></div>
+  </div>
+</div>
+
 <div id="admin-dashboard" class="modal-overlay">
   <div class="modal-card admin-card">
     <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -1447,9 +1472,10 @@ async function openProfile(uid, username) {
     // Check block status
     const blockSnap = await database.ref(`blocks/${auth.currentUser.uid}/${uid}`).once('value');
     const isBlocked = blockSnap.exists();
-    blockBtn.innerText = isBlocked ? '✅' : '🚫';
+    blockBtn.innerText = isBlocked ? '✅Atbloķēt' : '🚫Bloķēt';
     blockBtn.style.color = isBlocked ? 'var(--accent)' : '#FF3B30';
     blockBtn.style.border = isBlocked ? '1px solid var(--accent)' : '1px solid #FF3B30';
+    blockBtn.style.width = '25%';
 
     if (isBlocked) {
       followBtn.style.display = 'none';
@@ -1837,6 +1863,9 @@ let callListener = null;
 let incomingCallConvId = null;
 let callTimerInterval = null;
 let callSeconds = 0;
+let isMuted = false;
+let isCameraOff = false;
+let hasLocalVideo = false;
 
 const RTC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
 
@@ -1861,27 +1890,82 @@ function startCallTimer() {
     callSeconds++;
     const m = Math.floor(callSeconds / 60).toString().padStart(2, '0');
     const s = (callSeconds % 60).toString().padStart(2, '0');
-    document.getElementById('call-timer').innerText = `${m}:${s}`;
+    const timeStr = `${m}:${s}`;
+    document.getElementById('call-timer').innerText = timeStr;
+    document.getElementById('video-call-timer').innerText = timeStr;
   }, 1000);
 }
 
-async function startCall() {
-  if (!auth.currentUser || !currentDMConvId) { alert('Nav aktīvas sarunas.'); return; }
-  if (peerConnection) { alert('Jau notiek zvans.'); return; }
-  showCallBar('📞 Gaida mikrofonu...');
+async function getLocalStream() {
   try {
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+    hasLocalVideo = true;
+    return stream;
   } catch (e) {
-    hideCallBar();
-    alert('Nevar piekļūt mikrofonam: ' + e.message);
-    return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      hasLocalVideo = false;
+      return stream;
+    } catch (e2) {
+      throw new Error('Nevar piekļūt mikrofonam: ' + e2.message);
+    }
   }
-  showCallBar('📞 Savienojas...');
+}
+
+function showVideoOverlay(otherName) {
+  const overlay = document.getElementById('video-call-overlay');
+  overlay.style.display = 'flex';
+  document.getElementById('video-call-name').innerText = otherName;
+  document.getElementById('remote-no-camera-name').innerText = otherName;
+  isMuted = false;
+  isCameraOff = false;
+  document.getElementById('mute-btn').innerText = '🎤';
+  document.getElementById('camera-btn').innerText = '📷';
+}
+
+function hideVideoOverlay() {
+  document.getElementById('video-call-overlay').style.display = 'none';
+  document.getElementById('remote-video').srcObject = null;
+  document.getElementById('local-video').srcObject = null;
+  document.getElementById('remote-audio').srcObject = null;
+}
+
+function setupRemoteTrack(e) {
+  const stream = e.streams[0];
+  const hasVideo = stream.getVideoTracks().length > 0;
+  if (hasVideo) {
+    document.getElementById('remote-video').srcObject = stream;
+    document.getElementById('remote-no-camera').style.display = 'none';
+  } else {
+    document.getElementById('remote-audio').srcObject = stream;
+    document.getElementById('remote-no-camera').style.display = 'flex';
+  }
+}
+
+function toggleMute() {
+  if (!localStream) return;
+  isMuted = !isMuted;
+  localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
+  document.getElementById('mute-btn').innerText = isMuted ? '🔇' : '🎤';
+}
+
+function toggleCamera() {
+  if (!localStream) return;
+  isCameraOff = !isCameraOff;
+  localStream.getVideoTracks().forEach(t => t.enabled = !isCameraOff);
+  document.getElementById('camera-btn').innerText = isCameraOff ? '📵' : '📷';
+  document.getElementById('local-video').style.opacity = isCameraOff ? '0' : '1';
+}
+
+function setupPeerConnection(convId, isCallee) {
   peerConnection = new RTCPeerConnection(RTC_CONFIG);
   localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
-  peerConnection.ontrack = e => { document.getElementById('remote-audio').srcObject = e.streams[0]; };
+  peerConnection.ontrack = e => setupRemoteTrack(e);
   peerConnection.onicecandidate = e => {
-    if (e.candidate) database.ref(`calls/${currentDMConvId}/callerCandidates`).push(e.candidate.toJSON());
+    if (e.candidate) {
+      const path = isCallee ? `calls/${convId}/calleeCandidates` : `calls/${convId}/callerCandidates`;
+      database.ref(path).push(e.candidate.toJSON());
+    }
   };
   peerConnection.onconnectionstatechange = () => {
     console.log('Call state:', peerConnection?.connectionState);
@@ -1891,6 +1975,27 @@ async function startCall() {
     }
     if (['disconnected','failed','closed'].includes(peerConnection?.connectionState)) hangUp();
   };
+  return peerConnection;
+}
+
+async function startCall() {
+  if (!auth.currentUser || !currentDMConvId) { alert('Nav aktīvas sarunas.'); return; }
+  if (peerConnection) { alert('Jau notiek zvans.'); return; }
+  showCallBar('📞 Gaida kameru/mikrofonu...');
+  try {
+    localStream = await getLocalStream();
+  } catch (e) {
+    hideCallBar();
+    alert(e.message);
+    return;
+  }
+  if (hasLocalVideo) {
+    document.getElementById('local-video').srcObject = localStream;
+    showVideoOverlay(currentDMOtherName);
+    document.getElementById('remote-no-camera').style.display = 'flex';
+  }
+  showCallBar('📞 Savienojas...');
+  setupPeerConnection(currentDMConvId, false);
   const offer = await peerConnection.createOffer();
   await peerConnection.setLocalDescription(offer);
   const myName = userProfile?.username || auth.currentUser.displayName || 'Kāds';
@@ -1898,9 +2003,9 @@ async function startCall() {
     offer: { type: offer.type, sdp: offer.sdp },
     callerUID: auth.currentUser.uid,
     callerName: myName,
+    callerHasVideo: hasLocalVideo,
     status: 'calling'
   });
-  // Directly notify the other user
   await database.ref(`incoming_calls/${currentDMOtherUID}`).set({
     convId: currentDMConvId,
     callerUID: auth.currentUser.uid,
@@ -1929,34 +2034,26 @@ async function acceptCall() {
   const callData = callSnap.val();
   if (!callData) return;
   try {
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    localStream = await getLocalStream();
   } catch (e) {
-    alert('Nevar piekļūt mikrofonam.');
+    alert(e.message);
     return;
   }
-  peerConnection = new RTCPeerConnection(RTC_CONFIG);
-  localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
-  peerConnection.ontrack = e => { document.getElementById('remote-audio').srcObject = e.streams[0]; };
-  peerConnection.onicecandidate = e => {
-    if (e.candidate) database.ref(`calls/${incomingCallConvId}/calleeCandidates`).push(e.candidate.toJSON());
-  };
-  peerConnection.onconnectionstatechange = () => {
-    if (peerConnection?.connectionState === 'connected') {
-      showCallBar('📞 Savienots');
-      startCallTimer();
-    }
-    if (['disconnected','failed','closed'].includes(peerConnection?.connectionState)) hangUp();
-  };
+  if (hasLocalVideo) document.getElementById('local-video').srcObject = localStream;
+  if (!callData.callerHasVideo) {
+    document.getElementById('remote-no-camera').style.display = 'flex';
+    document.getElementById('remote-no-camera-name').innerText = callData.callerName;
+  }
+  showVideoOverlay(callData.callerName);
+  setupPeerConnection(incomingCallConvId, true);
   await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
   const answer = await peerConnection.createAnswer();
   await peerConnection.setLocalDescription(answer);
   await database.ref(`calls/${incomingCallConvId}/answer`).set({ type: answer.type, sdp: answer.sdp });
   await database.ref(`calls/${incomingCallConvId}/status`).set('active');
-  // Listen for caller ICE candidates
   database.ref(`calls/${incomingCallConvId}/callerCandidates`).on('child_added', snap => {
-    if (peerConnection) peerConnection.addIceCandidate(new RTCIceCandidate(snap.val()));
+    if (peerConnection) peerConnection.addIceCandidate(new RTCIceCandidate(snap.val())).catch(console.error);
   });
-  // Open the DM chat if not already open
   currentDMConvId = incomingCallConvId;
   showCallBar('📞 Savienots');
   if (document.getElementById('dm-modal').style.display === 'none') {
@@ -1977,7 +2074,7 @@ function declineCall() {
 async function hangUp() {
   if (peerConnection) { peerConnection.close(); peerConnection = null; }
   if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
-  document.getElementById('remote-audio').srcObject = null;
+  hideVideoOverlay();
   hideCallBar();
   if (currentDMConvId) {
     database.ref(`calls/${currentDMConvId}/status`).set('ended');
@@ -1987,9 +2084,9 @@ async function hangUp() {
   if (auth.currentUser) database.ref(`incoming_calls/${auth.currentUser.uid}`).remove();
   if (currentDMOtherUID) database.ref(`incoming_calls/${currentDMOtherUID}`).remove();
   incomingCallConvId = null;
+  hasLocalVideo = false;
 }
 
-// Listen for incoming calls globally
 function watchIncomingCalls(uid) {
   database.ref(`incoming_calls/${uid}`).on('value', async snap => {
     const call = snap.val();
@@ -1998,7 +2095,6 @@ function watchIncomingCalls(uid) {
     incomingCallConvId = call.convId;
     document.getElementById('incoming-call-name').innerText = `${call.callerName} zvana...`;
     document.getElementById('incoming-call-overlay').style.display = 'block';
-    // Auto decline after 30s
     setTimeout(() => {
       if (document.getElementById('incoming-call-overlay').style.display === 'block') declineCall();
     }, 30000);
