@@ -1880,6 +1880,7 @@ let callSeconds = 0;
 let isMuted = false;
 let isCameraOff = false;
 let hasLocalVideo = false;
+let pendingCandidates = []; // buffer ICE candidates until remoteDescription is set
 
 const RTC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
 
@@ -1913,18 +1914,22 @@ function startCallTimer() {
 async function getLocalStream(mode) {
   if (mode === 'video') {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: { facingMode: 'user' } });
       hasLocalVideo = true;
       return stream;
     } catch (e) {
-      // Fall back to audio if camera fails
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      hasLocalVideo = false;
-      return stream;
+      console.warn('Camera failed, falling back to audio:', e);
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        hasLocalVideo = false;
+        return stream;
+      } catch (e2) {
+        throw new Error('Nevar piekļūt mikrofonam: ' + e2.message);
+      }
     }
   } else {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       hasLocalVideo = false;
       return stream;
     } catch (e) {
@@ -1935,10 +1940,20 @@ async function getLocalStream(mode) {
 
 function showVideoOverlay(otherName) {
   const overlay = document.getElementById('video-call-overlay');
+  if (window.innerWidth <= 600) {
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.right = '0';
+    overlay.style.bottom = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.transform = 'none';
+    overlay.style.borderRadius = '0';
+  }
   overlay.style.display = 'flex';
   overlay.style.flexDirection = 'column';
-  document.getElementById('video-call-name').innerText = otherName;
-  document.getElementById('remote-no-camera-name').innerText = otherName;
+  document.getElementById('video-call-name').innerText = otherName || '';
+  document.getElementById('remote-no-camera-name').innerText = otherName || '';
   isMuted = false;
   isCameraOff = false;
   document.getElementById('mute-btn').innerText = '🎤';
@@ -1979,7 +1994,24 @@ function toggleCamera() {
   document.getElementById('local-video').style.opacity = isCameraOff ? '0' : '1';
 }
 
+async function addBufferedCandidates() {
+  for (const c of pendingCandidates) {
+    try { await peerConnection.addIceCandidate(new RTCIceCandidate(c)); } catch(e) { console.warn('ICE candidate error:', e); }
+  }
+  pendingCandidates = [];
+}
+
+async function safeAddCandidate(c) {
+  if (!peerConnection) return;
+  if (peerConnection.remoteDescription) {
+    try { await peerConnection.addIceCandidate(new RTCIceCandidate(c)); } catch(e) { console.warn('ICE candidate error:', e); }
+  } else {
+    pendingCandidates.push(c);
+  }
+}
+
 function setupPeerConnection(convId, isCallee) {
+  pendingCandidates = [];
   peerConnection = new RTCPeerConnection(RTC_CONFIG);
   localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
   peerConnection.ontrack = e => setupRemoteTrack(e);
@@ -2036,13 +2068,17 @@ async function startCall(mode = 'audio') {
     timestamp: Date.now()
   });
   showCallBar('📞 Zvana...');
+  // Listen for answer - set remote description then flush buffered candidates
   database.ref(`calls/${currentDMConvId}/answer`).on('value', async snap => {
     if (snap.val() && peerConnection && !peerConnection.currentRemoteDescription) {
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(snap.val()));
+      try {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(snap.val()));
+        await addBufferedCandidates();
+      } catch(e) { console.error('setRemoteDescription error:', e); }
     }
   });
   database.ref(`calls/${currentDMConvId}/calleeCandidates`).on('child_added', snap => {
-    if (peerConnection) peerConnection.addIceCandidate(new RTCIceCandidate(snap.val())).catch(console.error);
+    safeAddCandidate(snap.val());
   });
   database.ref(`calls/${currentDMConvId}/status`).on('value', snap => {
     if (snap.val() === 'declined') { alert('Zvans noraidīts.'); hangUp(); }
@@ -2056,27 +2092,33 @@ async function acceptCall() {
   const callSnap = await database.ref(`calls/${incomingCallConvId}`).once('value');
   const callData = callSnap.val();
   if (!callData) return;
+  const mode = callData.callerHasVideo ? 'video' : 'audio';
   try {
-    localStream = await getLocalStream(callData.callerHasVideo ? 'video' : 'audio');
+    localStream = await getLocalStream(mode);
   } catch (e) {
     alert(e.message);
     return;
   }
-  if (hasLocalVideo) document.getElementById('local-video').srcObject = localStream;
-  if (!callData.callerHasVideo) {
-    document.getElementById('remote-no-camera').style.display = 'flex';
-    document.getElementById('remote-no-camera-name').innerText = callData.callerName;
+  if (hasLocalVideo) {
+    document.getElementById('local-video').srcObject = localStream;
   }
-  showVideoOverlay(callData.callerName);
+  if (mode === 'video') {
+    showVideoOverlay(callData.callerName);
+    document.getElementById('remote-no-camera').style.display = 'flex';
+  }
   setupPeerConnection(incomingCallConvId, true);
-  await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
+  try {
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
+  } catch(e) { console.error('setRemoteDescription error:', e); return; }
   const answer = await peerConnection.createAnswer();
   await peerConnection.setLocalDescription(answer);
   await database.ref(`calls/${incomingCallConvId}/answer`).set({ type: answer.type, sdp: answer.sdp });
   await database.ref(`calls/${incomingCallConvId}/status`).set('active');
+  // Listen for caller ICE candidates - remoteDescription is set so add immediately
   database.ref(`calls/${incomingCallConvId}/callerCandidates`).on('child_added', snap => {
-    if (peerConnection) peerConnection.addIceCandidate(new RTCIceCandidate(snap.val())).catch(console.error);
+    safeAddCandidate(snap.val());
   });
+  await addBufferedCandidates();
   currentDMConvId = incomingCallConvId;
   showCallBar('📞 Savienots');
   if (document.getElementById('dm-modal').style.display === 'none') {
@@ -2097,6 +2139,7 @@ function declineCall() {
 async function hangUp() {
   if (peerConnection) { peerConnection.close(); peerConnection = null; }
   if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  pendingCandidates = [];
   hideVideoOverlay();
   hideCallBar();
   if (currentDMConvId) {
