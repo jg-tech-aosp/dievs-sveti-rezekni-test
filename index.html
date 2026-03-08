@@ -2186,6 +2186,8 @@ async function upgradeToVideo() {
 async function acceptCall() {
   document.getElementById('incoming-call-overlay').style.display = 'none';
   if (!incomingCallConvId) return;
+  // Remove the incoming_calls node immediately — this cancels the auto-decline timer
+  if (auth.currentUser) database.ref(`incoming_calls/${auth.currentUser.uid}`).remove();
   const callSnap = await database.ref(`calls/${incomingCallConvId}`).once('value');
   const callData = callSnap.val();
   if (!callData) return;
@@ -2292,9 +2294,11 @@ async function flipCamera() {
 
 // Listen for incoming calls globally
 function watchIncomingCalls(uid) {
+  let autoDeclineTimer = null;
   database.ref(`incoming_calls/${uid}`).on('value', async snap => {
     const call = snap.val();
-    if (!call) return;
+    // If node was cleared (call accepted/ended), cancel any pending auto-decline
+    if (!call) { clearTimeout(autoDeclineTimer); autoDeclineTimer = null; return; }
     if (call.callerUID === uid) return;
     incomingCallConvId = call.convId;
     incomingCallIsVideo = call.callType === 'video';
@@ -2305,9 +2309,11 @@ function watchIncomingCalls(uid) {
     document.getElementById('incoming-call-type').innerText = typeLabel;
     document.getElementById('accept-call-btn').innerText = incomingCallIsVideo ? '🎥' : '📞';
     document.getElementById('incoming-call-overlay').style.display = 'block';
-    // Auto decline after 30s
-    setTimeout(() => {
+    // Auto decline after 30s if not answered
+    clearTimeout(autoDeclineTimer);
+    autoDeclineTimer = setTimeout(() => {
       if (document.getElementById('incoming-call-overlay').style.display === 'block') declineCall();
+      autoDeclineTimer = null;
     }, 30000);
   });
 }
