@@ -141,17 +141,27 @@
       transform: scale(0.92);
     }
 
-    /* DM header call buttons - compact */
-    .dm-call-btn {
-      font-size: 0.95rem;
-      padding: 5px 9px !important;
-      min-width: 34px;
-      text-align: center;
+    /* DM header icon buttons — fixed size, never overflow */
+    .dm-icon-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--input-bg);
+      color: var(--text-main);
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      padding: 0;
+      transition: background 0.15s;
     }
-    .dm-close-btn {
-      font-size: 0.8rem;
-      padding: 5px 8px !important;
-    }
+    .dm-icon-btn:active { background: var(--border); }
+    /* ← and ✕ are text, slightly smaller font */
+    .dm-back-btn, .dm-x-btn { font-size: 0.9rem; font-weight: 700; }
 
     /* Mobile DM Modal - full screen bottom sheet */
     @media (max-width: 600px) {
@@ -169,16 +179,10 @@
       #dm-modal {
         align-items: flex-end !important;
       }
-      /* Hide the X close button on mobile - back arrow is enough */
-      .dm-close-btn {
-        display: none !important;
-      }
-      /* Slightly smaller call buttons */
-      .dm-call-btn {
-        font-size: 0.9rem;
-        padding: 5px 8px !important;
-        min-width: 30px;
-      }
+      /* Hide ✕ on mobile — back arrow is enough */
+      .dm-x-btn { display: none !important; }
+      /* Slightly smaller icon buttons on mobile */
+      .dm-icon-btn { width: 34px; height: 34px; font-size: 0.95rem; }
       /* Video call local pip */
       #local-video {
         bottom: 110px !important;
@@ -636,10 +640,10 @@
     <div style="display:flex; justify-content:space-between; align-items:center; flex-shrink:0; gap:8px;">
       <h2 style="margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; flex:1;" id="dm-chat-title">Saruna</h2>
       <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
-        <button onclick="startCall()" class="btn-small dm-call-btn" id="call-btn" title="Audio zvans">📞</button>
-        <button onclick="startVideoCall()" class="btn-small dm-call-btn" id="video-call-btn" title="Video zvans">🎥</button>
-        <button onclick="closeDMGoBack()" class="btn-small dm-call-btn">←</button>
-        <button onclick="closeDM()" class="btn-small dm-close-btn">✕</button>
+        <button onclick="startCall()" class="dm-icon-btn" id="call-btn" title="Audio zvans">📞</button>
+        <button onclick="startVideoCall()" class="dm-icon-btn" id="video-call-btn" title="Video zvans">🎥</button>
+        <button onclick="closeDMGoBack()" class="dm-icon-btn dm-back-btn">←</button>
+        <button onclick="closeDM()" class="dm-icon-btn dm-x-btn">✕</button>
       </div>
     </div>
     <!-- Active call bar -->
@@ -2050,6 +2054,16 @@ async function startCall() {
 
 async function startVideoCall() {
   isVideoCall = true;
+  // Explicitly request camera permission here — must be called directly from user gesture
+  // so the browser shows the permission prompt before we do any async Firebase work
+  let hasCamera = false;
+  try {
+    const test = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    test.getTracks().forEach(t => t.stop()); // immediately release, we'll re-request properly below
+    hasCamera = true;
+  } catch (e) {
+    // No camera or denied — we'll proceed audio-only, handled inside _initiateCall
+  }
   await _initiateCall(true);
 }
 
