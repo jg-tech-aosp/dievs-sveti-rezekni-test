@@ -611,8 +611,10 @@
         <div style="font-weight:700;font-size:0.88rem;">Profila bilde</div>
         <div style="font-size:0.75rem;opacity:0.5;margin-top:2px;" id="pfp-upload-status">Nav augšupielādēts</div>
       </div>
-      <button class="pfp-upload-btn" id="pfp-upload-btn" onclick="document.getElementById('pfp-file-input').click()">Mainīt</button>
-      <input type="file" id="pfp-file-input" accept="image/*" style="display:none;" onchange="uploadProfilePicture(event)">
+      <label class="pfp-upload-btn" id="pfp-upload-btn" style="cursor:pointer;">
+        Mainīt
+        <input type="file" id="pfp-file-input" accept="image/*" style="display:none;" onchange="uploadProfilePicture(event)">
+      </label>
     </div>
     <span class="label-hint">Lietotājvārds</span>
     <input type="text" id="settings-username">
@@ -1232,7 +1234,7 @@ let pfpCropNaturalH = 0;
 function uploadProfilePicture(event) {
   const file = event.target.files[0];
   if (!file) return;
-  document.getElementById('pfp-file-input').value = '';
+  const fi = document.getElementById('pfp-file-input'); if(fi) fi.value = '';
   const reader = new FileReader();
   reader.onload = e => {
     const img = document.getElementById('pfp-crop-img');
@@ -1331,7 +1333,7 @@ async function pfpConfirmCrop() {
   const status = document.getElementById('pfp-upload-status');
   const btn = document.getElementById('pfp-upload-btn');
   if (status) status.innerText = 'Augšupielādē...';
-  if (btn) btn.disabled = true;
+  if (btn) btn.style.opacity = '0.5'; btn && (btn.style.pointerEvents = 'none');
   canvas.toBlob(async (blob) => {
     try {
       const formData = new FormData();
@@ -1353,7 +1355,7 @@ async function pfpConfirmCrop() {
     } catch(e) {
       if (status) status.innerText = 'Kļūda: ' + e.message;
     }
-    if (btn) btn.disabled = false;
+    if (btn) { btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; }
   }, 'image/jpeg', 0.85);
 }
 
