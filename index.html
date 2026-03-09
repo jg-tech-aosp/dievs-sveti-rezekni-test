@@ -638,7 +638,7 @@
       <button onclick="closeProfile()" class="btn-small">X</button>
     </div>
     <div style="display:flex;align-items:center;gap:14px;margin:10px 0 4px;flex-shrink:0;">
-      <div id="profile-avatar-lg" class="user-avatar-lg">?</div>
+      <img id="profile-avatar-lg" class="user-avatar-lg" alt="avatar" src="" style="display:none;">
       <div style="flex:1;min-width:0;">
         <div id="profile-badge" style="font-size:0.85rem;margin-bottom:4px;"></div>
         <div id="profile-bio" style="font-size:0.85rem; opacity:0.7; margin-top:6px; padding:10px; background:var(--input-bg); border-radius:12px;"></div>
@@ -2364,22 +2364,28 @@ async function openProfile(uid, username) {
   document.getElementById('profile-followers-num').innerText = followersSnap.exists() ? Object.keys(followersSnap.val()).length : 0;
   document.getElementById('profile-following-num').innerText = followingSnap.exists() ? Object.keys(followingSnap.val()).length : 0;
 
+  // Reset avatar immediately
+  const existingAvatar = document.getElementById('profile-avatar-lg');
+  if (existingAvatar) { existingAvatar.src = ''; existingAvatar.style.display = 'none'; existingAvatar.alt = username; }
+
   const snap = await database.ref('users/' + uid).once('value');
   const u = snap.val();
   // Fall back to user_index if no data (non-admin reading another user)
-  const indexSnap = u ? null : await database.ref('user_index/' + uid).once('value');
+  const indexSnap = await database.ref('user_index/' + uid).once('value');
   const uData = u || indexSnap?.val();
   if (uData) {
     document.getElementById('profile-badge').innerHTML = uData.role === 'admin' ? '🛡️ <strong>Admin</strong>' : (uData.isPremium ? '✨ <strong>Premium</strong>' : '👤 Bezmaksas');
     document.getElementById('profile-bio').innerText = uData.bio || 'Nav bio.';
     // Avatar
+    const photoURL = indexSnap?.val()?.photoURL || u?.photoURL || null;
     const avatarEl = document.getElementById('profile-avatar-lg');
     if (avatarEl) {
-      if (uData.photoURL) {
-        avatarEl.outerHTML = `<img src="${uData.photoURL}" id="profile-avatar-lg" class="user-avatar-lg" alt="${username}">`;
+      if (photoURL) {
+        avatarEl.src = photoURL;
+        avatarEl.style.display = '';
       } else {
-        avatarEl.className = 'user-avatar-lg';
-        avatarEl.innerText = (username || '?')[0].toUpperCase();
+        avatarEl.src = '';
+        avatarEl.style.display = 'none';
       }
     }
   }
