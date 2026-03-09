@@ -1252,6 +1252,7 @@ function uploadProfilePicture(event) {
       pfpCropOffset.x = (280 - pfpCropNaturalW * fitScale) / 2;
       pfpCropOffset.y = (280 - pfpCropNaturalH * fitScale) / 2;
       pfpUpdateTransform();
+      pfpInitCropListeners();
       document.getElementById('pfp-crop-modal').style.display = 'flex';
     };
     img.src = e.target.result;
@@ -1277,9 +1278,10 @@ function pfpClampOffset() {
 }
 
 // Drag events
-document.addEventListener('DOMContentLoaded', () => {
+function pfpInitCropListeners() {
   const area = document.getElementById('pfp-crop-area');
-  if (!area) return;
+  if (!area || area._pfpListened) return;
+  area._pfpListened = true;
   const onDown = (ex, ey) => { pfpCropDragStart = { x: ex - pfpCropOffset.x, y: ey - pfpCropOffset.y }; };
   const onMove = (ex, ey) => {
     if (!pfpCropDragStart) return;
@@ -1295,7 +1297,7 @@ document.addEventListener('DOMContentLoaded', () => {
   area.addEventListener('touchstart', e => { e.preventDefault(); onDown(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
   document.addEventListener('touchmove', e => { if(pfpCropDragStart) { e.preventDefault(); onMove(e.touches[0].clientX, e.touches[0].clientY); } }, { passive: false });
   document.addEventListener('touchend', onUp);
-});
+}
 
 function closePfpCrop() {
   document.getElementById('pfp-crop-modal').style.display = 'none';
