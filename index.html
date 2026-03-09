@@ -632,14 +632,14 @@
 
 <!-- Profile Modal -->
 <div class="modal-overlay" id="profile-modal">
-  <div class="modal-card" style="max-height:85vh; max-width:94vw; width:360px; display:flex; flex-direction:column; overflow:hidden; box-sizing:border-box;">
+  <div class="modal-card" style="max-height:min(85vh,85dvh); max-width:94vw; width:360px; display:flex; flex-direction:column; overflow:hidden; box-sizing:border-box;">
     <div style="display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
       <h2 style="margin:0;" id="profile-username">Profils</h2>
       <button onclick="closeProfile()" class="btn-small">X</button>
     </div>
-    <div style="overflow-y:auto; flex:1; scrollbar-width:thin; padding-right:2px;">
+    <div style="overflow-y:auto; flex:1; min-height:0; scrollbar-width:thin; padding-right:2px;">
       <div style="display:flex;align-items:center;gap:12px;margin:12px 0 8px;">
-        <img id="profile-avatar-lg" class="user-avatar-lg" alt="avatar" src="" style="display:none;flex-shrink:0;">
+        <img id="profile-avatar-lg" alt="avatar" src="" style="display:none;flex-shrink:0;width:64px;height:64px;border-radius:50%;object-fit:cover;">
         <div id="profile-badge" style="font-size:0.85rem;"></div>
       </div>
       <div id="profile-bio" style="font-size:0.85rem; opacity:0.7; margin-bottom:10px; padding:10px; background:var(--input-bg); border-radius:12px; display:none;"></div>
@@ -2373,19 +2373,22 @@ async function openProfile(uid, username) {
   const u = snap.val();
   // Fall back to user_index if no data (non-admin reading another user)
   const indexSnap = await database.ref('user_index/' + uid).once('value');
-  const uData = u || indexSnap?.val();
+  const indexData = indexSnap?.val() || {};
+  const uData = u || indexData;
   if (uData) {
     document.getElementById('profile-badge').innerHTML = uData.role === 'admin' ? '🛡️ <strong>Admin</strong>' : (uData.isPremium ? '✨ <strong>Premium</strong>' : '👤 Bezmaksas');
     const bioEl = document.getElementById('profile-bio');
-    if (uData.bio) { bioEl.innerText = uData.bio; bioEl.style.display = 'block'; }
+    // bio may be in users/ or user_index
+    const bio = uData.bio || indexData.bio || '';
+    if (bio) { bioEl.innerText = bio; bioEl.style.display = 'block'; }
     else { bioEl.style.display = 'none'; }
-    // Avatar
-    const photoURL = indexSnap?.val()?.photoURL || u?.photoURL || null;
+    // Avatar - prefer user_index photoURL as it's always readable
+    const photoURL = indexData.photoURL || u?.photoURL || null;
     const avatarEl = document.getElementById('profile-avatar-lg');
     if (avatarEl) {
       if (photoURL) {
         avatarEl.src = photoURL;
-        avatarEl.style.display = '';
+        avatarEl.style.display = 'block';
       } else {
         avatarEl.src = '';
         avatarEl.style.display = 'none';
