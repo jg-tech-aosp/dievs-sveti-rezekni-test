@@ -431,6 +431,35 @@
       font-size: 0.8rem;
     }
 
+    /* --- PROFILE PICTURES --- */
+    .user-avatar {
+      width: 36px; height: 36px; border-radius: 50%; object-fit: cover;
+      background: var(--accent); display: inline-flex; align-items: center;
+      justify-content: center; font-weight: 700; color: white; font-size: 0.9rem;
+      flex-shrink: 0; vertical-align: middle;
+    }
+    .user-avatar-lg {
+      width: 64px; height: 64px; border-radius: 50%; object-fit: cover;
+      background: var(--accent); display: flex; align-items: center;
+      justify-content: center; font-weight: 700; color: white; font-size: 1.4rem;
+      flex-shrink: 0;
+    }
+    .user-avatar-sm {
+      width: 26px; height: 26px; border-radius: 50%; object-fit: cover;
+      background: var(--accent); display: inline-flex; align-items: center;
+      justify-content: center; font-weight: 700; color: white; font-size: 0.7rem;
+      flex-shrink: 0; vertical-align: middle;
+    }
+    .pfp-upload-wrap {
+      display: flex; align-items: center; gap: 14px; margin: 14px 0;
+      padding: 12px; background: var(--input-bg); border-radius: 14px; border: 1px solid var(--border);
+    }
+    .pfp-upload-btn {
+      background: var(--accent); color: white; border: none; border-radius: 10px;
+      padding: 7px 14px; font-size: 0.82rem; font-weight: 700; cursor: pointer;
+    }
+    .pfp-upload-btn:disabled { opacity: 0.5; cursor: default; }
+
     /* --- GROUP CHATS --- */
     .group-modal-card { width: 400px; }
     @media (max-width: 480px) {
@@ -576,6 +605,15 @@
       <h2 style="margin:0;">Iestatījumi</h2>
       <button onclick="closeSettings()" class="btn-small">X</button>
     </div>
+    <div class="pfp-upload-wrap">
+      <div id="settings-avatar" class="user-avatar-lg">?</div>
+      <div style="flex:1;">
+        <div style="font-weight:700;font-size:0.88rem;">Profila bilde</div>
+        <div style="font-size:0.75rem;opacity:0.5;margin-top:2px;" id="pfp-upload-status">Nav augšupielādēts</div>
+      </div>
+      <button class="pfp-upload-btn" id="pfp-upload-btn" onclick="document.getElementById('pfp-file-input').click()">Mainīt</button>
+      <input type="file" id="pfp-file-input" accept="image/*" style="display:none;" onchange="uploadProfilePicture(event)">
+    </div>
     <span class="label-hint">Lietotājvārds</span>
     <input type="text" id="settings-username">
     <span class="label-hint">Dzimšanas datums</span>
@@ -597,8 +635,11 @@
       <h2 style="margin:0;" id="profile-username">Profils</h2>
       <button onclick="closeProfile()" class="btn-small">X</button>
     </div>
-    <div id="profile-badge" style="margin:8px 0; font-size:0.85rem;"></div>
-    <div id="profile-bio" style="font-size:0.85rem; opacity:0.7; margin-bottom:12px; padding:10px; background:var(--input-bg); border-radius:12px; flex-shrink:0;"></div>
+    <div style="display:flex;align-items:center;gap:14px;margin:10px 0 4px;flex-shrink:0;">
+      <div id="profile-avatar-lg" class="user-avatar-lg">?</div>
+      <div style="flex:1;min-width:0;">
+        <div id="profile-badge" style="font-size:0.85rem;margin-bottom:4px;"></div>
+        <div id="profile-bio" style="font-size:0.85rem; opacity:0.7; margin-bottom:12px; padding:10px; background:var(--input-bg); border-radius:12px; flex-shrink:0;"></div>
     <!-- Follow stats -->
     <div style="display:flex; gap:16px; margin-bottom:12px; flex-shrink:0;">
       <span id="profile-followers-count" style="font-size:0.85rem; cursor:pointer;" onclick="openFollowList('followers')"><strong id="profile-followers-num">0</strong> sekotāji</span>
@@ -1013,6 +1054,15 @@ function openSettings() {
   document.getElementById('settings-dob').value = userProfile.dob || "";
   document.getElementById('settings-bio').value = userProfile.bio || "";
   document.getElementById('settings-premium-badge').innerText = userProfile.isPremium ? "Premium ✨" : "Bezmaksas";
+  // Show current avatar
+  const avatarEl = document.getElementById('settings-avatar');
+  if (avatarEl && userProfile.photoURL) {
+    avatarEl.outerHTML = `<img src="${userProfile.photoURL}" id="settings-avatar" class="user-avatar-lg" alt="avatar">`;
+  } else if (avatarEl) {
+    avatarEl.innerText = (userProfile.username || '?')[0].toUpperCase();
+  }
+  const status = document.getElementById('pfp-upload-status');
+  if (status) status.innerText = userProfile.photoURL ? 'Bilde iestatīta ✓' : 'Nav augšupielādēts';
 }
 function closeSettings() { document.getElementById('settings-modal').style.display = 'none'; }
 async function updateUserSettings() {
@@ -1144,6 +1194,92 @@ async function retryLoadStreets() {
   btn.style.pointerEvents = 'auto';
 }
 
+
+// --- PROFILE PICTURES (Cloudinary) ---
+const CLOUDINARY_CLOUD = 'dxvlkmuke';
+const CLOUDINARY_PRESET = 'thatpfpengine';
+
+function avatarHTML(photoURL, username, cls='user-avatar') {
+  if (photoURL) {
+    return `<img src="${photoURL}" class="${cls}" alt="${username}" onerror="this.outerHTML=avatarInitial('${username}','${cls}')">`;
+  }
+  return avatarInitialEl(username, cls);
+}
+
+function avatarInitialEl(username, cls='user-avatar') {
+  const letter = (username || '?')[0].toUpperCase();
+  return `<div class="${cls}" style="display:inline-flex;align-items:center;justify-content:center;">${letter}</div>`;
+}
+
+function setAvatarEl(el, photoURL, username, cls) {
+  if (!el) return;
+  if (photoURL) {
+    el.outerHTML = `<img src="${photoURL}" id="${el.id}" class="${cls || el.className}" alt="${username}" style="${el.style.cssText}" onerror="this.style.display='none'">`;
+  } else {
+    el.className = cls || el.className;
+    el.innerText = (username || '?')[0].toUpperCase();
+  }
+}
+
+async function uploadProfilePicture(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const btn = document.getElementById('pfp-upload-btn');
+  const status = document.getElementById('pfp-upload-status');
+  btn.disabled = true;
+  status.innerText = 'Augšupielādē...';
+
+  // Compress first
+  const compressed = await new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 400; let w = img.width, h = img.height;
+        if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+        if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(resolve, 'image/jpeg', 0.8);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  try {
+    const formData = new FormData();
+    formData.append('file', compressed);
+    formData.append('upload_preset', CLOUDINARY_PRESET);
+    formData.append('public_id', `avatar_${auth.currentUser.uid}`);
+    formData.append('overwrite', 'true');
+
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
+      method: 'POST', body: formData
+    });
+    const data = await res.json();
+    if (!data.secure_url) throw new Error('Upload failed');
+
+    const photoURL = data.secure_url;
+    await database.ref(`users/${auth.currentUser.uid}/photoURL`).set(photoURL);
+    await database.ref(`user_index/${auth.currentUser.uid}/photoURL`).set(photoURL);
+    userProfile.photoURL = photoURL;
+
+    // Update avatar preview in settings
+    const avatarEl = document.getElementById('settings-avatar');
+    if (avatarEl) {
+      avatarEl.outerHTML = `<img src="${photoURL}" id="settings-avatar" class="user-avatar-lg" alt="avatar">`;
+    }
+    status.innerText = 'Saglabāts!';
+    setTimeout(() => { if(document.getElementById('pfp-upload-status')) document.getElementById('pfp-upload-status').innerText = ''; }, 2000);
+  } catch(e) {
+    status.innerText = 'Kļūda: ' + e.message;
+  }
+  btn.disabled = false;
+  document.getElementById('pfp-file-input').value = '';
+}
+
 // --- GROUP CHATS ---
 let currentGroupId = null;
 let groupMsgListener = null;
@@ -1237,7 +1373,10 @@ async function handleGroupMemberSearch() {
     if (selectedCount >= 9) return; // max 9 + leader = 10
     const row = document.createElement('div');
     row.className = 'group-member-row';
-    row.innerHTML = `<div class="group-avatar">${u.username[0].toUpperCase()}</div><div style="flex:1;font-size:0.88rem;font-weight:600;">${u.username}</div><span style="font-size:0.75rem;opacity:0.4;">+</span>`;
+    const gaEl = u.photoURL
+      ? `<img src="${u.photoURL}" class="group-avatar" style="width:32px;height:32px;" alt="${u.username}" onerror="this.style.display='none'">`
+      : `<div class="group-avatar">${u.username[0].toUpperCase()}</div>`;
+    row.innerHTML = `${gaEl}<div style="flex:1;font-size:0.88rem;font-weight:600;">${u.username}</div><span style="font-size:0.75rem;opacity:0.4;">+</span>`;
     row.onclick = () => {
       groupSelectedMembers[uid] = u.username;
       document.getElementById('group-member-search').value = '';
@@ -1273,9 +1412,12 @@ async function createGroup() {
   const myName = userProfile?.username || auth.currentUser.displayName || 'Lietotājs';
   const gid = database.ref('groups').push().key;
   const now = Date.now();
-  const members = { [myUID]: { username: myName, joinedAt: now, role: 'leader' } };
-  Object.entries(groupSelectedMembers).forEach(([uid, username]) => {
-    members[uid] = { username, joinedAt: now + 1, role: 'member' };
+  const myPhoto = userProfile?.photoURL || null;
+  const members = { [myUID]: { username: myName, joinedAt: now, role: 'leader', photoURL: myPhoto } };
+  // Fetch photos for selected members
+  const photoSnaps = await Promise.all(Object.keys(groupSelectedMembers).map(uid => database.ref(`user_index/${uid}/photoURL`).once('value')));
+  Object.entries(groupSelectedMembers).forEach(([uid, username], i) => {
+    members[uid] = { username, joinedAt: now + 1, role: 'member', photoURL: photoSnaps[i].val() || null };
   });
   const memberCount = Object.keys(members).length;
   const updates = {};
@@ -1320,7 +1462,10 @@ function openGroupChat(gid, name) {
         const isMine = msg.senderUID === auth.currentUser.uid;
         const wrap = document.createElement('div');
         wrap.className = `dm-bubble-wrap ${isMine ? 'sent' : 'received'}`;
-        const nameLabel = !isMine ? `<div style="font-size:0.72rem;font-weight:700;opacity:0.6;margin-bottom:2px;">${msg.senderName}</div>` : '';
+        const senderAvatar = !isMine ? (msg.senderPhoto
+          ? `<img src="${msg.senderPhoto}" class="user-avatar-sm" alt="${msg.senderName}" style="margin-right:5px;" onerror="this.style.display='none'">`
+          : `<span class="user-avatar-sm" style="margin-right:5px;">${(msg.senderName||'?')[0].toUpperCase()}</span>`) : '';
+        const nameLabel = !isMine ? `<div style="font-size:0.72rem;font-weight:700;opacity:0.6;margin-bottom:2px;display:flex;align-items:center;">${senderAvatar}${msg.senderName}</div>` : '';
         const textHTML = msg.text ? `<div class="dm-bubble ${isMine ? 'sent' : 'received'}">${msg.text}</div>` : '';
         const photoHTML = msg.photo ? `<img src="${msg.photo}" onclick="openLightbox(this.src)" style="max-width:200px; border-radius:12px; margin-top:${msg.text ? '4px' : '0'}; cursor:zoom-in; display:block;">` : '';
         wrap.innerHTML = `${nameLabel}${textHTML}${photoHTML}<div class="dm-bubble-meta">${timeAgo(msg.timestamp)}</div>`;
@@ -1358,7 +1503,7 @@ async function sendGroupMessage() {
   const myName = userProfile?.username || auth.currentUser.displayName || 'Lietotājs';
   const ts = Date.now();
   await database.ref(`group_messages/${currentGroupId}`).push({
-    senderUID: myUID, senderName: myName, text: text || null, photo: groupPhotoBase64 || null, timestamp: ts
+    senderUID: myUID, senderName: myName, senderPhoto: userProfile?.photoURL || null, text: text || null, photo: groupPhotoBase64 || null, timestamp: ts
   });
   // Update user_groups for all members
   const membersSnap = await database.ref(`group_members/${currentGroupId}`).once('value');
@@ -1439,8 +1584,11 @@ async function openGroupInfo() {
     if (isLeader && !isMe) {
       removeBtn = `<button onclick="removeGroupMemberById('${uid}', '${m.username}')" style="background:none;border:none;color:#FF3B30;font-size:0.8rem;cursor:pointer;padding:2px 6px;">Noņemt</button>`;
     }
+    const giAvatar = m.photoURL
+      ? `<img src="${m.photoURL}" class="group-avatar" style="width:32px;height:32px;" alt="${m.username}" onerror="this.style.display='none'">`
+      : `<div class="group-avatar">${m.username[0].toUpperCase()}</div>`;
     row.innerHTML = `
-      <div class="group-avatar">${m.username[0].toUpperCase()}</div>
+      ${giAvatar}
       <div style="flex:1;font-size:0.88rem;font-weight:600;">${m.username}${isMe ? ' (Tu)' : ''}${leaderBadge}</div>
       ${removeBtn}
     `;
@@ -1817,6 +1965,7 @@ async function submitPost() {
     username: userProfile?.username || auth.currentUser.displayName || 'Lietotājs',
     isPremium: userProfile?.isPremium || false,
     isAdmin: userProfile?.role === 'admin' || false,
+    photoURL: userProfile?.photoURL || null,
     text: filterText(text),
     photos: feedPhotos.length > 0 ? feedPhotos : null,
     timestamp: Date.now()
@@ -2029,9 +2178,12 @@ function buildPostHTML(key, post, isOwner) {
   const photos = post.photos ? Object.values(post.photos) : (post.photo ? [post.photo] : []);
   const photosHTML = photos.map(src => `<img class="feed-item-img" src="${src}" alt="foto" onclick="openLightbox(this.src)" style="cursor:zoom-in;">`).join('');
 
+  const avatarImg = post.photoURL
+    ? `<img src="${post.photoURL}" class="user-avatar-sm" alt="${post.username}" style="margin-right:6px;" onerror="this.style.display='none'">`
+    : `<span class="user-avatar-sm" style="margin-right:6px;">${(post.username||'?')[0].toUpperCase()}</span>`;
   return `
     <div class="feed-item-header">
-      <span class="feed-item-user" onclick="openProfile('${post.uid}', '${post.username}')">${post.username}${badge}</span>
+      <span class="feed-item-user" onclick="openProfile('${post.uid}', '${post.username}')" style="display:flex;align-items:center;">${avatarImg}${post.username}${badge}</span>
       <span class="feed-item-time">${timeAgo(post.timestamp)}</span>
     </div>
     ${post.text ? `<div class="feed-item-text">${post.text}</div>` : ''}
@@ -2127,6 +2279,16 @@ async function openProfile(uid, username) {
   if (uData) {
     document.getElementById('profile-badge').innerHTML = uData.role === 'admin' ? '🛡️ <strong>Admin</strong>' : (uData.isPremium ? '✨ <strong>Premium</strong>' : '👤 Bezmaksas');
     document.getElementById('profile-bio').innerText = uData.bio || 'Nav bio.';
+    // Avatar
+    const avatarEl = document.getElementById('profile-avatar-lg');
+    if (avatarEl) {
+      if (uData.photoURL) {
+        avatarEl.outerHTML = `<img src="${uData.photoURL}" id="profile-avatar-lg" class="user-avatar-lg" alt="${username}">`;
+      } else {
+        avatarEl.className = 'user-avatar-lg';
+        avatarEl.innerText = (username || '?')[0].toUpperCase();
+      }
+    }
   }
 
   const feedSnap = await database.ref('feed').orderByChild('uid').equalTo(uid).once('value');
@@ -2365,12 +2527,21 @@ function startDMFromProfile() {
 
 function closeProfile() { document.getElementById('profile-modal').style.display = 'none'; }
 
-function startDMWith(uid, username) {
+async function startDMWith(uid, username) {
   currentDMOtherUID = uid;
   currentDMOtherName = username;
   currentDMConvId = getDMConvId(auth.currentUser.uid, uid);
   document.getElementById('profile-modal').style.display = 'none';
   document.getElementById('inbox-modal').style.display = 'none';
+  // Fetch their photo to store in inbox meta
+  const idxSnap = await database.ref(`user_index/${uid}/photoURL`).once('value');
+  const theirPhoto = idxSnap.val() || null;
+  const myUID = auth.currentUser.uid;
+  const myName = userProfile?.username || auth.currentUser.displayName || 'Lietotājs';
+  const myPhoto = userProfile?.photoURL || null;
+  // Update both sides with photo
+  database.ref(`user_convs/${myUID}/${currentDMConvId}`).update({ otherPhotoURL: theirPhoto });
+  database.ref(`user_convs/${uid}/${currentDMConvId}`).update({ otherPhotoURL: myPhoto });
   openDMChat();
 }
 
@@ -2451,7 +2622,7 @@ async function sendDM() {
   const myUID = auth.currentUser.uid;
   const myName = userProfile?.username || auth.currentUser.displayName || 'Lietotājs';
   await database.ref(`dms/${currentDMConvId}/messages`).push({
-    senderUID: myUID, senderName: myName, text: text || null, photo: dmPhotoBase64 || null, timestamp: Date.now(), read: false
+    senderUID: myUID, senderName: myName, senderPhoto: userProfile?.photoURL || null, text: text || null, photo: dmPhotoBase64 || null, timestamp: Date.now(), read: false
   });
   const preview = text || (dmPhotoBase64 ? '📷 Foto' : '');
   const ts = Date.now();
@@ -2876,7 +3047,10 @@ function openInbox() {
       if (meta.unread) hasUnread = true;
       const item = document.createElement('div');
       item.className = `inbox-item${meta.unread ? ' unread' : ''}`;
-      item.innerHTML = `<div class="inbox-item-name">${meta.otherName}</div><div class="inbox-item-preview">${meta.lastMsg || ''}</div>`;
+      const inboxAvatar = meta.otherPhotoURL
+        ? `<img src="${meta.otherPhotoURL}" class="user-avatar-sm" alt="${meta.otherName}" style="margin-right:8px;flex-shrink:0;" onerror="this.style.display='none'">`
+        : `<span class="user-avatar-sm" style="margin-right:8px;flex-shrink:0;">${(meta.otherName||'?')[0].toUpperCase()}</span>`;
+      item.innerHTML = `<div style="display:flex;align-items:center;">${inboxAvatar}<div><div class="inbox-item-name">${meta.otherName}</div><div class="inbox-item-preview">${meta.lastMsg || ''}</div></div></div>`;
       item.onclick = () => { currentDMConvId = id; currentDMOtherUID = meta.otherUID; currentDMOtherName = meta.otherName; closeInbox(); openDMChat(); };
       list.appendChild(item);
     });
