@@ -1246,26 +1246,21 @@ function uploadProfilePicture(event) {
   console.log('pfp-crop-img el:', cropImg);
   const reader = new FileReader();
   reader.onload = e => {
+    // Show modal first so img can load (Firefox won't fire onload on hidden elements)
+    document.getElementById('pfp-crop-modal').style.display = 'flex';
+    pfpInitCropListeners();
     const img = document.getElementById('pfp-crop-img');
     img.onload = () => {
       pfpCropNaturalW = img.naturalWidth;
       pfpCropNaturalH = img.naturalHeight;
-      pfpCropScale = 1;
-      pfpCropOffset = { x: 0, y: 0 };
-      document.getElementById('pfp-crop-zoom').value = 1;
-      // Fit image to fill the 280px crop area initially
       const fitScale = Math.max(280 / pfpCropNaturalW, 280 / pfpCropNaturalH);
       pfpCropScale = fitScale;
       document.getElementById('pfp-crop-zoom').min = fitScale;
       document.getElementById('pfp-crop-zoom').max = fitScale * 3;
       document.getElementById('pfp-crop-zoom').value = fitScale;
-      // Center
       pfpCropOffset.x = (280 - pfpCropNaturalW * fitScale) / 2;
       pfpCropOffset.y = (280 - pfpCropNaturalH * fitScale) / 2;
       pfpUpdateTransform();
-      pfpInitCropListeners();
-      document.getElementById('pfp-crop-modal').style.display = 'flex';
-      // Reset input AFTER reading
       const fi = document.getElementById('pfp-file-input'); if(fi) fi.value = '';
     };
     img.src = e.target.result;
