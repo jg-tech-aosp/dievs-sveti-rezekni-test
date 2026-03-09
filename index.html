@@ -613,7 +613,7 @@
       </div>
       <label class="pfp-upload-btn" id="pfp-upload-btn" style="cursor:pointer;">
         Mainīt
-        <input type="file" id="pfp-file-input" accept="image/*" style="display:none;" onchange="uploadProfilePicture(event)">
+        <input type="file" id="pfp-file-input" accept="image/*" style="display:none;">
       </label>
     </div>
     <span class="label-hint">Lietotājvārds</span>
@@ -1280,6 +1280,12 @@ function pfpClampOffset() {
 }
 
 // Drag events
+// Attach file input listener immediately (not waiting for DOMContentLoaded)
+setTimeout(() => {
+  const fi = document.getElementById('pfp-file-input');
+  if (fi) fi.addEventListener('change', uploadProfilePicture);
+}, 0);
+
 function pfpInitCropListeners() {
   const area = document.getElementById('pfp-crop-area');
   if (!area || area._pfpListened) return;
@@ -3196,15 +3202,6 @@ database.ref('feed').orderByChild('timestamp').on('value', (snapshot) => {
 loadStreets();
 </script>
 
-<div id="test-banner" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:9999; background:#FF3B30; color:white; text-align:center; padding:8px; font-size:0.78rem; font-weight:700; letter-spacing:0.05em;">
-  ⚠️ THIS IS A TEST VERSION. IT MAY BE UNSTABLE. DEVS ONLY ⚠️
-</div>
-<script>
-  if (window.location.href.includes('dievs-sveti-rezekni-test')) {
-    document.getElementById('test-banner').style.display = 'block';
-  }
-</script>
-
 <!-- Profile Picture Crop Modal -->
 <div class="modal-overlay" id="pfp-crop-modal" style="display:none;z-index:9999;">
   <div class="modal-card" style="width:340px;display:flex;flex-direction:column;align-items:center;gap:14px;">
@@ -3237,5 +3234,13 @@ loadStreets();
   </div>
 </div>
 
+<div id="test-banner" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:9999; background:#FF3B30; color:white; text-align:center; padding:8px; font-size:0.78rem; font-weight:700; letter-spacing:0.05em;">
+  ⚠️ THIS IS A TEST VERSION. IT MAY BE UNSTABLE. DEVS ONLY ⚠️
+</div>
+<script>
+  if (window.location.href.includes('dievs-sveti-rezekni-test')) {
+    document.getElementById('test-banner').style.display = 'block';
+  }
+</script>
 </body>
 </html>
