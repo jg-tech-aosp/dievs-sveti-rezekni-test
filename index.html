@@ -2141,9 +2141,21 @@ async function _initiateCall(withVideo) {
   database.ref(`calls/${currentDMConvId}/calleeCandidates`).on('child_added', snap => {
     if (peerConnection) peerConnection.addIceCandidate(new RTCIceCandidate(snap.val())).catch(console.error);
   });
-  database.ref(`calls/${currentDMConvId}/status`).on('value', snap => {
-    if (snap.val() === 'declined') { alert('Zvans noraidīts.'); hangUp(); }
-    if (snap.val() === 'ended') hangUp();
+  const statusRef = database.ref(`calls/${currentDMConvId}/status`);
+  statusRef.on('value', snap => {
+    const s = snap.val();
+    if (s === 'active') {
+      // Call was answered — stop listening for declined, it can't be declined now
+      statusRef.off();
+      if (withVideo) {
+        document.getElementById('video-connecting-overlay').style.display = 'none';
+        document.getElementById('video-call-status').innerText = 'Savienots';
+      } else {
+        showCallBar('📞 Savienots');
+      }
+    }
+    if (s === 'declined') { showDMNotice('Zvans noraidīts.'); hangUp(); }
+    if (s === 'ended') hangUp();
   });
   // Listen for video upgrade signal from callee
   database.ref(`calls/${currentDMConvId}/videoUpgrade`).on('value', async snap => {
@@ -2235,11 +2247,14 @@ async function acceptCall() {
 
 function declineCall() {
   document.getElementById('incoming-call-overlay').style.display = 'none';
-  if (incomingCallConvId) {
+  if (!incomingCallConvId) return;
+  // Don't decline if the call is already active (we already accepted it)
+  database.ref(`calls/${incomingCallConvId}/status`).once('value', snap => {
+    if (snap.val() === 'active') { incomingCallConvId = null; return; }
     database.ref(`calls/${incomingCallConvId}/status`).set('declined');
     if (auth.currentUser) database.ref(`incoming_calls/${auth.currentUser.uid}`).remove();
     incomingCallConvId = null;
-  }
+  });
 }
 
 async function hangUp() {
