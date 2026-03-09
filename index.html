@@ -1052,6 +1052,12 @@ async function signInWithGoogle() {
 function openSettings() {
   if (!userProfile) return;
   document.getElementById('settings-modal').style.display = 'flex';
+  // Attach pfp listener here - guaranteed element exists
+  const fi = document.getElementById('pfp-file-input');
+  if (fi && !fi._pfpListened) {
+    fi._pfpListened = true;
+    fi.addEventListener('change', uploadProfilePicture);
+  }
   document.getElementById('settings-username').value = userProfile.username || "";
   document.getElementById('settings-dob').value = userProfile.dob || "";
   document.getElementById('settings-bio').value = userProfile.bio || "";
@@ -1280,11 +1286,7 @@ function pfpClampOffset() {
   pfpCropOffset.y = Math.min(maxY, Math.max(minY, pfpCropOffset.y));
 }
 
-// Drag events - attach file input listener on window load
-window.addEventListener('load', () => {
-  const fi = document.getElementById('pfp-file-input');
-  if (fi) fi.addEventListener('change', uploadProfilePicture);
-});
+// Drag events
 
 function pfpInitCropListeners() {
   const area = document.getElementById('pfp-crop-area');
@@ -3238,9 +3240,11 @@ loadStreets();
   ⚠️ THIS IS A TEST VERSION. IT MAY BE UNSTABLE. DEVS ONLY ⚠️
 </div>
 <script>
-  if (window.location.href.includes('dievs-sveti-rezekni-test')) {
-    document.getElementById('test-banner').style.display = 'block';
-  }
+  window.addEventListener('load', () => {
+    if (window.location.href.includes('dievs-sveti-rezekni-test')) {
+      document.getElementById('test-banner').style.display = 'block';
+    }
+  });
 </script>
 </body>
 </html>
