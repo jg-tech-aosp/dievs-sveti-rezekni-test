@@ -1221,63 +1221,138 @@ function setAvatarEl(el, photoURL, username, cls) {
   }
 }
 
-async function uploadProfilePicture(event) {
+// --- PFP CROP STATE ---
+let pfpCropImgEl = null;
+let pfpCropDragStart = null;
+let pfpCropOffset = { x: 0, y: 0 };
+let pfpCropScale = 1;
+let pfpCropNaturalW = 0;
+let pfpCropNaturalH = 0;
+
+function uploadProfilePicture(event) {
   const file = event.target.files[0];
   if (!file) return;
-  const btn = document.getElementById('pfp-upload-btn');
-  const status = document.getElementById('pfp-upload-status');
-  btn.disabled = true;
-  status.innerText = 'Augšupielādē...';
-
-  // Compress first
-  const compressed = await new Promise(resolve => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX = 400; let w = img.width, h = img.height;
-        if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
-        if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        canvas.toBlob(resolve, 'image/jpeg', 0.8);
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-
-  try {
-    const formData = new FormData();
-    formData.append('file', compressed);
-    formData.append('upload_preset', CLOUDINARY_PRESET);
-    formData.append('public_id', `avatar_${auth.currentUser.uid}`);
-    formData.append('overwrite', 'true');
-
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
-      method: 'POST', body: formData
-    });
-    const data = await res.json();
-    if (!data.secure_url) throw new Error('Upload failed');
-
-    const photoURL = data.secure_url;
-    await database.ref(`users/${auth.currentUser.uid}/photoURL`).set(photoURL);
-    await database.ref(`user_index/${auth.currentUser.uid}/photoURL`).set(photoURL);
-    userProfile.photoURL = photoURL;
-
-    // Update avatar preview in settings
-    const avatarEl = document.getElementById('settings-avatar');
-    if (avatarEl) {
-      avatarEl.outerHTML = `<img src="${photoURL}" id="settings-avatar" class="user-avatar-lg" alt="avatar">`;
-    }
-    status.innerText = 'Saglabāts!';
-    setTimeout(() => { if(document.getElementById('pfp-upload-status')) document.getElementById('pfp-upload-status').innerText = ''; }, 2000);
-  } catch(e) {
-    status.innerText = 'Kļūda: ' + e.message;
-  }
-  btn.disabled = false;
   document.getElementById('pfp-file-input').value = '';
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('pfp-crop-img');
+    img.onload = () => {
+      pfpCropNaturalW = img.naturalWidth;
+      pfpCropNaturalH = img.naturalHeight;
+      pfpCropScale = 1;
+      pfpCropOffset = { x: 0, y: 0 };
+      document.getElementById('pfp-crop-zoom').value = 1;
+      // Fit image to fill the 280px crop area initially
+      const fitScale = Math.max(280 / pfpCropNaturalW, 280 / pfpCropNaturalH);
+      pfpCropScale = fitScale;
+      document.getElementById('pfp-crop-zoom').min = fitScale;
+      document.getElementById('pfp-crop-zoom').max = fitScale * 3;
+      document.getElementById('pfp-crop-zoom').value = fitScale;
+      // Center
+      pfpCropOffset.x = (280 - pfpCropNaturalW * fitScale) / 2;
+      pfpCropOffset.y = (280 - pfpCropNaturalH * fitScale) / 2;
+      pfpUpdateTransform();
+      document.getElementById('pfp-crop-modal').style.display = 'flex';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function pfpUpdateTransform() {
+  pfpCropScale = parseFloat(document.getElementById('pfp-crop-zoom').value);
+  const img = document.getElementById('pfp-crop-img');
+  img.style.width = pfpCropNaturalW * pfpCropScale + 'px';
+  img.style.height = pfpCropNaturalH * pfpCropScale + 'px';
+  img.style.left = pfpCropOffset.x + 'px';
+  img.style.top = pfpCropOffset.y + 'px';
+}
+
+function pfpClampOffset() {
+  const maxX = 0, maxY = 0;
+  const minX = 280 - pfpCropNaturalW * pfpCropScale;
+  const minY = 280 - pfpCropNaturalH * pfpCropScale;
+  pfpCropOffset.x = Math.min(maxX, Math.max(minX, pfpCropOffset.x));
+  pfpCropOffset.y = Math.min(maxY, Math.max(minY, pfpCropOffset.y));
+}
+
+// Drag events
+document.addEventListener('DOMContentLoaded', () => {
+  const area = document.getElementById('pfp-crop-area');
+  if (!area) return;
+  const onDown = (ex, ey) => { pfpCropDragStart = { x: ex - pfpCropOffset.x, y: ey - pfpCropOffset.y }; };
+  const onMove = (ex, ey) => {
+    if (!pfpCropDragStart) return;
+    pfpCropOffset.x = ex - pfpCropDragStart.x;
+    pfpCropOffset.y = ey - pfpCropDragStart.y;
+    pfpClampOffset();
+    pfpUpdateTransform();
+  };
+  const onUp = () => { pfpCropDragStart = null; };
+  area.addEventListener('mousedown', e => onDown(e.clientX, e.clientY));
+  document.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
+  document.addEventListener('mouseup', onUp);
+  area.addEventListener('touchstart', e => { e.preventDefault(); onDown(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+  document.addEventListener('touchmove', e => { if(pfpCropDragStart) { e.preventDefault(); onMove(e.touches[0].clientX, e.touches[0].clientY); } }, { passive: false });
+  document.addEventListener('touchend', onUp);
+});
+
+function closePfpCrop() {
+  document.getElementById('pfp-crop-modal').style.display = 'none';
+  pfpCropDragStart = null;
+}
+
+async function pfpConfirmCrop() {
+  // Render cropped 260x260 circle from the current view
+  const CROP_SIZE = 260;
+  const AREA_SIZE = 280;
+  const circleRadius = 130;
+  const circleCenter = 140;
+  // The circle is centered in 280x280, we crop 260x260 (leaving 10px border)
+  const cropX = circleCenter - circleRadius; // = 10
+  const cropY = circleCenter - circleRadius; // = 10
+  const canvas = document.createElement('canvas');
+  canvas.width = CROP_SIZE;
+  canvas.height = CROP_SIZE;
+  const ctx = canvas.getContext('2d');
+  // Clip to circle
+  ctx.beginPath();
+  ctx.arc(CROP_SIZE / 2, CROP_SIZE / 2, CROP_SIZE / 2, 0, Math.PI * 2);
+  ctx.clip();
+  // Draw image offset by crop position
+  const img = document.getElementById('pfp-crop-img');
+  const drawX = pfpCropOffset.x - cropX;
+  const drawY = pfpCropOffset.y - cropY;
+  ctx.drawImage(img, drawX, drawY, pfpCropNaturalW * pfpCropScale, pfpCropNaturalH * pfpCropScale);
+  closePfpCrop();
+  // Upload
+  const status = document.getElementById('pfp-upload-status');
+  const btn = document.getElementById('pfp-upload-btn');
+  if (status) status.innerText = 'Augšupielādē...';
+  if (btn) btn.disabled = true;
+  canvas.toBlob(async (blob) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', blob, 'avatar.jpg');
+      formData.append('upload_preset', CLOUDINARY_PRESET);
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
+        method: 'POST', body: formData
+      });
+      const data = await res.json();
+      if (!data.secure_url) throw new Error(data.error?.message || 'Upload failed');
+      const photoURL = data.secure_url;
+      await database.ref(`users/${auth.currentUser.uid}/photoURL`).set(photoURL);
+      await database.ref(`user_index/${auth.currentUser.uid}/photoURL`).set(photoURL);
+      userProfile.photoURL = photoURL;
+      const avatarEl = document.getElementById('settings-avatar');
+      if (avatarEl) avatarEl.outerHTML = `<img src="${photoURL}" id="settings-avatar" class="user-avatar-lg" alt="avatar">`;
+      if (status) status.innerText = 'Saglabāts! ✓';
+      setTimeout(() => { const s = document.getElementById('pfp-upload-status'); if(s) s.innerText = 'Bilde iestatīta ✓'; }, 2000);
+    } catch(e) {
+      if (status) status.innerText = 'Kļūda: ' + e.message;
+    }
+    if (btn) btn.disabled = false;
+  }, 'image/jpeg', 0.85);
 }
 
 // --- GROUP CHATS ---
@@ -3125,5 +3200,38 @@ loadStreets();
     document.getElementById('test-banner').style.display = 'block';
   }
 </script>
+
+<!-- Profile Picture Crop Modal -->
+<div class="modal-overlay" id="pfp-crop-modal" style="display:none;z-index:9999;">
+  <div class="modal-card" style="width:340px;display:flex;flex-direction:column;align-items:center;gap:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+      <h2 style="margin:0;">✂️ Apgriezt bildi</h2>
+      <button onclick="closePfpCrop()" class="btn-small">X</button>
+    </div>
+    <div style="position:relative;width:280px;height:280px;overflow:hidden;border-radius:12px;background:#000;touch-action:none;" id="pfp-crop-area">
+      <img id="pfp-crop-img" style="position:absolute;transform-origin:0 0;cursor:grab;" draggable="false">
+      <!-- circle overlay -->
+      <div style="position:absolute;inset:0;pointer-events:none;">
+        <svg width="280" height="280" style="position:absolute;inset:0;">
+          <defs>
+            <mask id="circle-mask">
+              <rect width="280" height="280" fill="white"/>
+              <circle cx="140" cy="140" r="130" fill="black"/>
+            </mask>
+          </defs>
+          <rect width="280" height="280" fill="rgba(0,0,0,0.55)" mask="url(#circle-mask)"/>
+          <circle cx="140" cy="140" r="130" fill="none" stroke="white" stroke-width="2" opacity="0.7"/>
+        </svg>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;width:100%;">
+      <span style="font-size:0.75rem;opacity:0.5;">🔍</span>
+      <input type="range" id="pfp-crop-zoom" min="1" max="3" step="0.01" value="1" style="flex:1;" oninput="pfpUpdateTransform()">
+      <span style="font-size:0.75rem;opacity:0.5;">🔎</span>
+    </div>
+    <button class="btn-apply" onclick="pfpConfirmCrop()" style="width:100%;margin:0;">Apstiprināt</button>
+  </div>
+</div>
+
 </body>
 </html>
