@@ -1570,11 +1570,6 @@ function watchGroupBadge(uid) {
   });
 }
 
-  await loadStreets();
-  btn.innerText = '🔃';
-  btn.style.pointerEvents = 'auto';
-}
-
 async function loadStreets() {
   const query = `[out:json][timeout:25];(way["highway"~"trunk|primary|secondary|tertiary|residential|unclassified|living_street"](56.45,27.25,56.55,27.42););out geom;`;
   try {
