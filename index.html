@@ -1238,8 +1238,12 @@ let pfpCropNaturalW = 0;
 let pfpCropNaturalH = 0;
 
 function uploadProfilePicture(event) {
+  try {
   const file = (event.target || event.currentTarget).files[0];
+  console.log('uploadProfilePicture called, file:', file);
   if (!file) return;
+  const cropImg = document.getElementById('pfp-crop-img');
+  console.log('pfp-crop-img el:', cropImg);
   const reader = new FileReader();
   reader.onload = e => {
     const img = document.getElementById('pfp-crop-img');
@@ -1267,6 +1271,7 @@ function uploadProfilePicture(event) {
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
+  } catch(err) { console.error('uploadProfilePicture error:', err); }
 }
 
 function pfpUpdateTransform() {
