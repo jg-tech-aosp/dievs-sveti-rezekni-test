@@ -534,38 +534,6 @@
   </style>
 </head>
 <body>
-<!-- Profile Picture Crop Modal -->
-<div class="modal-overlay" id="pfp-crop-modal" style="display:none;z-index:9999;">
-  <div class="modal-card" style="width:340px;display:flex;flex-direction:column;align-items:center;gap:14px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
-      <h2 style="margin:0;">✂️ Apgriezt bildi</h2>
-      <button onclick="closePfpCrop()" class="btn-small">X</button>
-    </div>
-    <div style="position:relative;width:280px;height:280px;overflow:hidden;border-radius:12px;background:#000;touch-action:none;" id="pfp-crop-area">
-      <img id="pfp-crop-img" style="position:absolute;transform-origin:0 0;cursor:grab;" draggable="false">
-      <!-- circle overlay -->
-      <div style="position:absolute;inset:0;pointer-events:none;">
-        <svg width="280" height="280" style="position:absolute;inset:0;">
-          <defs>
-            <mask id="circle-mask">
-              <rect width="280" height="280" fill="white"/>
-              <circle cx="140" cy="140" r="130" fill="black"/>
-            </mask>
-          </defs>
-          <rect width="280" height="280" fill="rgba(0,0,0,0.55)" mask="url(#circle-mask)"/>
-          <circle cx="140" cy="140" r="130" fill="none" stroke="white" stroke-width="2" opacity="0.7"/>
-        </svg>
-      </div>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;width:100%;">
-      <span style="font-size:0.75rem;opacity:0.5;">🔍</span>
-      <input type="range" id="pfp-crop-zoom" min="1" max="3" step="0.01" value="1" style="flex:1;" oninput="pfpUpdateTransform()">
-      <span style="font-size:0.75rem;opacity:0.5;">🔎</span>
-    </div>
-    <button class="btn-apply" onclick="pfpConfirmCrop()" style="width:100%;margin:0;">Apstiprināt</button>
-  </div>
-</div>
-
 
 <div class="auth-nav" id="auth-nav">
   <div id="logged-out-ui" style="display:flex; gap:8px;">
@@ -673,7 +641,9 @@
       <div id="profile-avatar-lg" class="user-avatar-lg">?</div>
       <div style="flex:1;min-width:0;">
         <div id="profile-badge" style="font-size:0.85rem;margin-bottom:4px;"></div>
-        <div id="profile-bio" style="font-size:0.85rem; opacity:0.7; margin-bottom:12px; padding:10px; background:var(--input-bg); border-radius:12px; flex-shrink:0;"></div>
+        <div id="profile-bio" style="font-size:0.85rem; opacity:0.7; margin-top:6px; padding:10px; background:var(--input-bg); border-radius:12px;"></div>
+      </div>
+    </div>
     <!-- Follow stats -->
     <div style="display:flex; gap:16px; margin-bottom:12px; flex-shrink:0;">
       <span id="profile-followers-count" style="font-size:0.85rem; cursor:pointer;" onclick="openFollowList('followers')"><strong id="profile-followers-num">0</strong> sekotāji</span>
@@ -3240,6 +3210,38 @@ database.ref('feed').orderByChild('timestamp').on('value', (snapshot) => {
 loadStreets();
 </script>
 
+
+<!-- Profile Picture Crop Modal -->
+<div class="modal-overlay" id="pfp-crop-modal" style="display:none;z-index:9999;">
+  <div class="modal-card" style="width:340px;display:flex;flex-direction:column;align-items:center;gap:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+      <h2 style="margin:0;">✂️ Apgriezt bildi</h2>
+      <button onclick="closePfpCrop()" class="btn-small">X</button>
+    </div>
+    <div style="position:relative;width:280px;height:280px;overflow:hidden;border-radius:12px;background:#000;touch-action:none;" id="pfp-crop-area">
+      <img id="pfp-crop-img" style="position:absolute;transform-origin:0 0;cursor:grab;" draggable="false">
+      <!-- circle overlay -->
+      <div style="position:absolute;inset:0;pointer-events:none;">
+        <svg width="280" height="280" style="position:absolute;inset:0;">
+          <defs>
+            <mask id="circle-mask">
+              <rect width="280" height="280" fill="white"/>
+              <circle cx="140" cy="140" r="130" fill="black"/>
+            </mask>
+          </defs>
+          <rect width="280" height="280" fill="rgba(0,0,0,0.55)" mask="url(#circle-mask)"/>
+          <circle cx="140" cy="140" r="130" fill="none" stroke="white" stroke-width="2" opacity="0.7"/>
+        </svg>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;width:100%;">
+      <span style="font-size:0.75rem;opacity:0.5;">🔍</span>
+      <input type="range" id="pfp-crop-zoom" min="1" max="3" step="0.01" value="1" style="flex:1;" oninput="pfpUpdateTransform()">
+      <span style="font-size:0.75rem;opacity:0.5;">🔎</span>
+    </div>
+    <button class="btn-apply" onclick="pfpConfirmCrop()" style="width:100%;margin:0;">Apstiprināt</button>
+  </div>
+</div>
 
 <div id="test-banner" style="display:none; position:fixed; bottom:0; left:0; right:0; z-index:9999; background:#FF3B30; color:white; text-align:center; padding:8px; font-size:0.78rem; font-weight:700; letter-spacing:0.05em;">
   ⚠️ THIS IS A TEST VERSION. IT MAY BE UNSTABLE. DEVS ONLY ⚠️
