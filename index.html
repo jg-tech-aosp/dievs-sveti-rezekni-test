@@ -632,30 +632,32 @@
 
 <!-- Profile Modal -->
 <div class="modal-overlay" id="profile-modal">
-  <div class="modal-card" style="max-height:80vh; display:flex; flex-direction:column; overflow:hidden;">
+  <div class="modal-card" style="max-height:85vh; width:360px; display:flex; flex-direction:column; overflow:hidden;">
     <div style="display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
       <h2 style="margin:0;" id="profile-username">Profils</h2>
       <button onclick="closeProfile()" class="btn-small">X</button>
     </div>
-    <div style="display:flex;align-items:center;gap:14px;margin:10px 0 4px;flex-shrink:0;">
-      <img id="profile-avatar-lg" class="user-avatar-lg" alt="avatar" src="" style="display:none;">
-      <div style="flex:1;min-width:0;">
-        <div id="profile-badge" style="font-size:0.85rem;margin-bottom:4px;"></div>
-        <div id="profile-bio" style="font-size:0.85rem; opacity:0.7; margin-top:6px; padding:10px; background:var(--input-bg); border-radius:12px;"></div>
+    <div style="overflow-y:auto; flex:1; scrollbar-width:thin;">
+      <div style="display:flex;align-items:center;gap:14px;margin:12px 0 8px;">
+        <img id="profile-avatar-lg" class="user-avatar-lg" alt="avatar" src="" style="display:none;">
+        <div style="flex:1;min-width:0;">
+          <div id="profile-badge" style="font-size:0.85rem;margin-bottom:4px;"></div>
+          <div id="profile-bio" style="font-size:0.85rem; opacity:0.7; margin-top:6px; padding:10px; background:var(--input-bg); border-radius:12px;"></div>
+        </div>
       </div>
+      <!-- Follow stats -->
+      <div style="display:flex; gap:16px; margin-bottom:12px;">
+        <span id="profile-followers-count" style="font-size:0.85rem; cursor:pointer;" onclick="openFollowList('followers')"><strong id="profile-followers-num">0</strong> sekotāji</span>
+        <span id="profile-following-count" style="font-size:0.85rem; cursor:pointer;" onclick="openFollowList('following')"><strong id="profile-following-num">0</strong> seko</span>
+      </div>
+      <div id="profile-action-btns" style="display:flex; gap:8px; margin-bottom:12px;">
+        <button id="profile-follow-btn" class="btn-apply" style="display:none; margin:0; padding:10px; flex:1;" onclick="toggleFollow()">Sekot</button>
+        <button id="profile-dm-btn-wrap" class="btn-apply" style="display:none; margin:0; padding:10px; flex:1; background:var(--input-bg); color:var(--text-main); border:1px solid var(--border);" onclick="startDMFromProfile()">💬 Sūtīt ziņu</button>
+        <button id="profile-block-btn" class="btn-apply" style="display:none; margin:0; padding:10px 12px; background:var(--input-bg); color:#FF3B30; border:1px solid #FF3B30; flex-shrink:0;" onclick="toggleBlock()">🚫</button>
+      </div>
+      <div style="font-weight:700; font-size:0.8rem; opacity:0.5; margin-bottom:8px;">ZIŅAS</div>
+      <div id="profile-posts" style="scrollbar-width:thin;"></div>
     </div>
-    <!-- Follow stats -->
-    <div style="display:flex; gap:16px; margin-bottom:12px; flex-shrink:0;">
-      <span id="profile-followers-count" style="font-size:0.85rem; cursor:pointer;" onclick="openFollowList('followers')"><strong id="profile-followers-num">0</strong> sekotāji</span>
-      <span id="profile-following-count" style="font-size:0.85rem; cursor:pointer;" onclick="openFollowList('following')"><strong id="profile-following-num">0</strong> seko</span>
-    </div>
-    <div id="profile-action-btns" style="display:flex; gap:8px; margin-bottom:12px; flex-shrink:0;">
-      <button id="profile-follow-btn" class="btn-apply" style="display:none; margin:0; padding:10px; flex:1;" onclick="toggleFollow()">Sekot</button>
-      <button id="profile-dm-btn-wrap" class="btn-apply" style="display:none; margin:0; padding:10px; flex:1; background:var(--input-bg); color:var(--text-main); border:1px solid var(--border);" onclick="startDMFromProfile()">💬 Sūtīt ziņu</button>
-      <button id="profile-block-btn" class="btn-apply" style="display:none; margin:0; padding:10px 12px; background:var(--input-bg); color:#FF3B30; border:1px solid #FF3B30; flex-shrink:0;" onclick="toggleBlock()">🚫</button>
-    </div>
-    <div style="font-weight:700; font-size:0.8rem; opacity:0.5; margin-bottom:8px; flex-shrink:0;">ZIŅAS</div>
-    <div id="profile-posts" style="overflow-y:auto; flex:1; scrollbar-width:thin;"></div>
   </div>
 </div>
 
