@@ -1232,9 +1232,8 @@ let pfpCropNaturalW = 0;
 let pfpCropNaturalH = 0;
 
 function uploadProfilePicture(event) {
-  const file = event.target.files[0];
+  const file = (event.target || event.currentTarget).files[0];
   if (!file) return;
-  const fi = document.getElementById('pfp-file-input'); if(fi) fi.value = '';
   const reader = new FileReader();
   reader.onload = e => {
     const img = document.getElementById('pfp-crop-img');
@@ -1256,6 +1255,8 @@ function uploadProfilePicture(event) {
       pfpUpdateTransform();
       pfpInitCropListeners();
       document.getElementById('pfp-crop-modal').style.display = 'flex';
+      // Reset input AFTER reading
+      const fi = document.getElementById('pfp-file-input'); if(fi) fi.value = '';
     };
     img.src = e.target.result;
   };
@@ -1279,12 +1280,11 @@ function pfpClampOffset() {
   pfpCropOffset.y = Math.min(maxY, Math.max(minY, pfpCropOffset.y));
 }
 
-// Drag events
-// Attach file input listener immediately (not waiting for DOMContentLoaded)
-setTimeout(() => {
+// Drag events - attach file input listener on window load
+window.addEventListener('load', () => {
   const fi = document.getElementById('pfp-file-input');
   if (fi) fi.addEventListener('change', uploadProfilePicture);
-}, 0);
+});
 
 function pfpInitCropListeners() {
   const area = document.getElementById('pfp-crop-area');
