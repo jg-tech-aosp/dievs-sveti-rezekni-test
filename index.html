@@ -1147,6 +1147,10 @@ async function retryLoadStreets() {
   streetLayersById = {};
   selectedLayer = null;
   await loadStreets();
+  btn.innerText = '🔃';
+  btn.style.pointerEvents = 'auto';
+}
+
 // --- GROUP CHATS ---
 let currentGroupId = null;
 let groupMsgListener = null;
@@ -1566,7 +1570,7 @@ function watchGroupBadge(uid) {
   });
 }
 
-loadStreets();
+  await loadStreets();
   btn.innerText = '🔃';
   btn.style.pointerEvents = 'auto';
 }
