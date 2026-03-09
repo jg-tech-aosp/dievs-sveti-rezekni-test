@@ -632,14 +632,14 @@
 
 <!-- Profile Modal -->
 <div class="modal-overlay" id="profile-modal">
-  <div class="modal-card" style="max-height:min(85vh,85dvh); max-width:94vw; width:360px; display:flex; flex-direction:column; overflow:hidden; box-sizing:border-box;">
+  <div class="modal-card" style="max-height:85vh; max-width:94vw; width:360px; display:flex; flex-direction:column; overflow:hidden; box-sizing:border-box;">
     <div style="display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
       <h2 style="margin:0;" id="profile-username">Profils</h2>
       <button onclick="closeProfile()" class="btn-small">X</button>
     </div>
-    <div style="overflow-y:auto; flex:1; min-height:0; scrollbar-width:thin; padding-right:2px;">
+    <div style="overflow-y:auto; flex:1; scrollbar-width:thin; padding-right:2px;">
       <div style="display:flex;align-items:center;gap:12px;margin:12px 0 8px;">
-        <img id="profile-avatar-lg" alt="avatar" src="" style="display:none;flex-shrink:0;width:64px;height:64px;border-radius:50%;object-fit:cover;">
+        <img id="profile-avatar-lg" class="user-avatar-lg" alt="avatar" src="" style="display:none;flex-shrink:0;">
         <div id="profile-badge" style="font-size:0.85rem;"></div>
       </div>
       <div id="profile-bio" style="font-size:0.85rem; opacity:0.7; margin-bottom:10px; padding:10px; background:var(--input-bg); border-radius:12px; display:none;"></div>
@@ -1082,7 +1082,7 @@ async function updateUserSettings() {
     await database.ref('users/' + auth.currentUser.uid).update({
       username, dob: document.getElementById('settings-dob').value, bio
     });
-    await database.ref('user_index/' + auth.currentUser.uid).update({ username, bio });
+    await database.ref('user_index/' + auth.currentUser.uid).update({ username, bio, isPremium: userProfile?.isPremium || false, role: userProfile?.role || 'user' });
     alert("Saglabāts!"); location.reload();
   } catch (e) { alert(e.message); }
 }
@@ -2324,84 +2324,32 @@ async function openProfile(uid, username) {
   document.getElementById('profile-posts').innerHTML = '<div style="opacity:0.4;font-size:0.85rem;padding:10px;">Ielādē...</div>';
 
   const isOwnProfile = auth.currentUser && auth.currentUser.uid === uid;
+
+  // Follow button
   const followBtn = document.getElementById('profile-follow-btn');
   const dmBtn = document.getElementById('profile-dm-btn-wrap');
   const blockBtn = document.getElementById('profile-block-btn');
-
-  // Reset avatar immediately
-  const avatarEl = document.getElementById('profile-avatar-lg');
-  if (avatarEl) { avatarEl.src = ''; avatarEl.style.display = 'none'; avatarEl.alt = username; }
-
-  // Fire all reads in parallel so a slow one doesn't block the rest
-  const reads = {
-    indexSnap:     database.ref('user_index/' + uid).once('value'),
-    followersSnap: database.ref('followers/' + uid).once('value'),
-    followingSnap: database.ref('following/' + uid).once('value'),
-    feedSnap:      database.ref('feed').orderByChild('uid').equalTo(uid).once('value'),
-    blockSnap:     (auth.currentUser && !isOwnProfile)
-                     ? database.ref('blocks/' + auth.currentUser.uid + '/' + uid).once('value')
-                     : Promise.resolve(null),
-    followSnap:    (auth.currentUser && !isOwnProfile)
-                     ? database.ref('followers/' + uid + '/' + auth.currentUser.uid).once('value')
-                     : Promise.resolve(null),
-    // users/ may be null for non-admin, that's fine
-    userSnap:      database.ref('users/' + uid).once('value').catch(() => null),
-  };
-
-  // Settle all — never let one failure kill the rest
-  const results = {};
-  await Promise.all(
-    Object.entries(reads).map(([k, p]) =>
-      Promise.resolve(p).then(v => { results[k] = v; }).catch(() => { results[k] = null; })
-    )
-  );
-
-  const { indexSnap, followersSnap, followingSnap, feedSnap, blockSnap, followSnap, userSnap } = results;
-  const indexData = indexSnap?.val() || {};
-  const userData  = userSnap?.val()  || {};
-
-  // --- Badge, bio, avatar (user_index is always readable) ---
-  const isPremium = indexData.isPremium ?? userData.isPremium ?? false;
-  const isAdmin   = userData.role === 'admin' || indexData.role === 'admin';
-  document.getElementById('profile-badge').innerHTML =
-    isAdmin ? '🛡️ <strong>Admin</strong>' : (isPremium ? '✨ <strong>Premium</strong>' : '👤 Bezmaksas');
-
-  const bio = indexData.bio || userData.bio || '';
-  const bioEl = document.getElementById('profile-bio');
-  if (bio) { bioEl.innerText = bio; bioEl.style.display = 'block'; }
-  else { bioEl.style.display = 'none'; }
-
-  const photoURL = indexData.photoURL || userData.photoURL || null;
-  if (avatarEl) {
-    if (photoURL) { avatarEl.src = photoURL; avatarEl.style.display = 'block'; }
-    else { avatarEl.style.display = 'none'; }
-  }
-
-  // --- Follower / following counts ---
-  document.getElementById('profile-followers-num').innerText =
-    followersSnap?.exists() ? Object.keys(followersSnap.val()).length : 0;
-  document.getElementById('profile-following-num').innerText =
-    followingSnap?.exists() ? Object.keys(followingSnap.val()).length : 0;
-
-  // --- Follow / DM / Block buttons ---
   if (auth.currentUser && !isOwnProfile) {
-    const isBlocked = blockSnap?.exists() ?? false;
     blockBtn.style.display = 'block';
+    // Check block status
+    const blockSnap = await database.ref(`blocks/${auth.currentUser.uid}/${uid}`).once('value');
+    const isBlocked = blockSnap.exists();
     blockBtn.innerText = isBlocked ? '✅Atbloķēt' : '🚫Bloķēt';
-    blockBtn.style.color  = isBlocked ? 'var(--accent)' : '#FF3B30';
+    blockBtn.style.color = isBlocked ? 'var(--accent)' : '#FF3B30';
     blockBtn.style.border = isBlocked ? '1px solid var(--accent)' : '1px solid #FF3B30';
-    blockBtn.style.width  = '25%';
+    blockBtn.style.width = '25%';
+
     if (isBlocked) {
       followBtn.style.display = 'none';
       dmBtn.style.display = 'none';
     } else {
       followBtn.style.display = 'block';
       dmBtn.style.display = 'block';
-      const isFollowing = followSnap?.exists() ?? false;
-      followBtn.innerText = isFollowing ? 'Nesekot' : 'Sekot';
-      followBtn.style.background = isFollowing ? 'var(--input-bg)' : 'var(--accent)';
-      followBtn.style.color      = isFollowing ? 'var(--text-main)' : 'white';
-      followBtn.style.border     = isFollowing ? '1px solid var(--border)' : 'none';
+      const followSnap = await database.ref(`followers/${uid}/${auth.currentUser.uid}`).once('value');
+      followBtn.innerText = followSnap.exists() ? 'Nesekot' : 'Sekot';
+      followBtn.style.background = followSnap.exists() ? 'var(--input-bg)' : 'var(--accent)';
+      followBtn.style.color = followSnap.exists() ? 'var(--text-main)' : 'white';
+      followBtn.style.border = followSnap.exists() ? '1px solid var(--border)' : 'none';
     }
   } else {
     followBtn.style.display = 'none';
@@ -2409,19 +2357,51 @@ async function openProfile(uid, username) {
     blockBtn.style.display = 'none';
   }
 
-  // --- Posts ---
+  // Load follower/following counts
+  const [followersSnap, followingSnap] = await Promise.all([
+    database.ref(`followers/${uid}`).once('value'),
+    database.ref(`following/${uid}`).once('value')
+  ]);
+  document.getElementById('profile-followers-num').innerText = followersSnap.exists() ? Object.keys(followersSnap.val()).length : 0;
+  document.getElementById('profile-following-num').innerText = followingSnap.exists() ? Object.keys(followingSnap.val()).length : 0;
+
+  // Reset avatar immediately
+  const existingAvatar = document.getElementById('profile-avatar-lg');
+  if (existingAvatar) { existingAvatar.src = ''; existingAvatar.style.display = 'none'; existingAvatar.alt = username; }
+
+  const snap = await database.ref('users/' + uid).once('value');
+  const u = snap.val();
+  // Fall back to user_index if no data (non-admin reading another user)
+  const indexSnap = await database.ref('user_index/' + uid).once('value');
+  const uData = u || indexSnap?.val();
+  if (uData) {
+    document.getElementById('profile-badge').innerHTML = uData.role === 'admin' ? '🛡️ <strong>Admin</strong>' : (uData.isPremium ? '✨ <strong>Premium</strong>' : '👤 Bezmaksas');
+    const bioEl = document.getElementById('profile-bio');
+    if (uData.bio) { bioEl.innerText = uData.bio; bioEl.style.display = 'block'; }
+    else { bioEl.style.display = 'none'; }
+    // Avatar
+    const photoURL = indexSnap?.val()?.photoURL || u?.photoURL || null;
+    const avatarEl = document.getElementById('profile-avatar-lg');
+    if (avatarEl) {
+      if (photoURL) {
+        avatarEl.src = photoURL;
+        avatarEl.style.display = '';
+      } else {
+        avatarEl.src = '';
+        avatarEl.style.display = 'none';
+      }
+    }
+  }
+
+  const feedSnap = await database.ref('feed').orderByChild('uid').equalTo(uid).once('value');
   const postsContainer = document.getElementById('profile-posts');
   postsContainer.innerHTML = '';
-  const feedVal = feedSnap?.val();
-  if (!feedVal) {
-    postsContainer.innerHTML = '<div style="opacity:0.4;font-size:0.85rem;padding:10px;">Nav ziņu.</div>';
-    return;
-  }
-  const isOwner = auth.currentUser && (auth.currentUser.uid === uid || userProfile?.role === 'admin');
-  Object.entries(feedVal).reverse().forEach(([key, post]) => {
+  const val = feedSnap.val();
+  if (!val) { postsContainer.innerHTML = '<div style="opacity:0.4;font-size:0.85rem;padding:10px;">Nav ziņu.</div>'; return; }
+  Object.entries(val).reverse().forEach(([key, post]) => {
     const item = document.createElement('div');
     item.className = 'feed-item';
-    try { item.innerHTML = buildPostHTML(key, post, isOwner); } catch(e) { return; }
+    item.innerHTML = buildPostHTML(key, post, auth.currentUser && (auth.currentUser.uid === uid || userProfile?.role === 'admin'));
     postsContainer.appendChild(item);
   });
 }
