@@ -632,19 +632,17 @@
 
 <!-- Profile Modal -->
 <div class="modal-overlay" id="profile-modal">
-  <div class="modal-card" style="max-height:85vh; width:360px; display:flex; flex-direction:column; overflow:hidden;">
+  <div class="modal-card" style="max-height:85vh; max-width:94vw; width:360px; display:flex; flex-direction:column; overflow:hidden; box-sizing:border-box;">
     <div style="display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
       <h2 style="margin:0;" id="profile-username">Profils</h2>
       <button onclick="closeProfile()" class="btn-small">X</button>
     </div>
-    <div style="overflow-y:auto; flex:1; scrollbar-width:thin;">
-      <div style="display:flex;align-items:center;gap:14px;margin:12px 0 8px;">
-        <img id="profile-avatar-lg" class="user-avatar-lg" alt="avatar" src="" style="display:none;">
-        <div style="flex:1;min-width:0;">
-          <div id="profile-badge" style="font-size:0.85rem;margin-bottom:4px;"></div>
-          <div id="profile-bio" style="font-size:0.85rem; opacity:0.7; margin-top:6px; padding:10px; background:var(--input-bg); border-radius:12px;"></div>
-        </div>
+    <div style="overflow-y:auto; flex:1; scrollbar-width:thin; padding-right:2px;">
+      <div style="display:flex;align-items:center;gap:12px;margin:12px 0 8px;">
+        <img id="profile-avatar-lg" class="user-avatar-lg" alt="avatar" src="" style="display:none;flex-shrink:0;">
+        <div id="profile-badge" style="font-size:0.85rem;"></div>
       </div>
+      <div id="profile-bio" style="font-size:0.85rem; opacity:0.7; margin-bottom:10px; padding:10px; background:var(--input-bg); border-radius:12px; display:none;"></div>
       <!-- Follow stats -->
       <div style="display:flex; gap:16px; margin-bottom:12px;">
         <span id="profile-followers-count" style="font-size:0.85rem; cursor:pointer;" onclick="openFollowList('followers')"><strong id="profile-followers-num">0</strong> sekotāji</span>
@@ -656,7 +654,7 @@
         <button id="profile-block-btn" class="btn-apply" style="display:none; margin:0; padding:10px 12px; background:var(--input-bg); color:#FF3B30; border:1px solid #FF3B30; flex-shrink:0;" onclick="toggleBlock()">🚫</button>
       </div>
       <div style="font-weight:700; font-size:0.8rem; opacity:0.5; margin-bottom:8px;">ZIŅAS</div>
-      <div id="profile-posts" style="scrollbar-width:thin;"></div>
+      <div id="profile-posts"></div>
     </div>
   </div>
 </div>
@@ -2320,6 +2318,7 @@ async function openProfile(uid, username) {
   document.getElementById('profile-username').innerText = username;
   document.getElementById('profile-badge').innerText = '';
   document.getElementById('profile-bio').innerText = '';
+  document.getElementById('profile-bio').style.display = 'none';
   document.getElementById('profile-followers-num').innerText = '0';
   document.getElementById('profile-following-num').innerText = '0';
   document.getElementById('profile-posts').innerHTML = '<div style="opacity:0.4;font-size:0.85rem;padding:10px;">Ielādē...</div>';
@@ -2377,7 +2376,9 @@ async function openProfile(uid, username) {
   const uData = u || indexSnap?.val();
   if (uData) {
     document.getElementById('profile-badge').innerHTML = uData.role === 'admin' ? '🛡️ <strong>Admin</strong>' : (uData.isPremium ? '✨ <strong>Premium</strong>' : '👤 Bezmaksas');
-    document.getElementById('profile-bio').innerText = uData.bio || 'Nav bio.';
+    const bioEl = document.getElementById('profile-bio');
+    if (uData.bio) { bioEl.innerText = uData.bio; bioEl.style.display = 'block'; }
+    else { bioEl.style.display = 'none'; }
     // Avatar
     const photoURL = indexSnap?.val()?.photoURL || u?.photoURL || null;
     const avatarEl = document.getElementById('profile-avatar-lg');
