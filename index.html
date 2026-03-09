@@ -1246,8 +1246,11 @@ function uploadProfilePicture(event) {
   console.log('pfp-crop-img el:', cropImg);
   const reader = new FileReader();
   reader.onload = e => {
-    // Show modal first so img can load (Firefox won't fire onload on hidden elements)
-    document.getElementById('pfp-crop-modal').style.display = 'flex';
+    // Hide settings modal, show crop modal on top
+    document.getElementById('settings-modal').style.display = 'none';
+    const cropModal = document.getElementById('pfp-crop-modal');
+    cropModal.style.display = 'flex';
+    cropModal.style.zIndex = '9999';
     pfpInitCropListeners();
     const img = document.getElementById('pfp-crop-img');
     img.onload = () => {
@@ -1311,6 +1314,7 @@ function pfpInitCropListeners() {
 
 function closePfpCrop() {
   document.getElementById('pfp-crop-modal').style.display = 'none';
+  document.getElementById('settings-modal').style.display = 'flex';
   pfpCropDragStart = null;
 }
 
