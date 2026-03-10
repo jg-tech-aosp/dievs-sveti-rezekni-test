@@ -1055,13 +1055,22 @@ auth.onAuthStateChanged(async (user) => {
 
 
 // --- ONLINE STATUS ---
+let presenceHeartbeat = null;
+
 function initPresence(uid) {
   const statusRef = database.ref("status/" + uid);
   database.ref(".info/connected").on("value", snap => {
     if (!snap.val()) return;
     statusRef.onDisconnect().set({ online: false, lastSeen: firebase.database.ServerValue.TIMESTAMP });
-    statusRef.set({ online: true, lastSeen: firebase.database.ServerValue.TIMESTAMP });
+    statusRef.update({ online: true, lastSeen: firebase.database.ServerValue.TIMESTAMP });
   });
+  // Heartbeat every 60s to keep lastSeen fresh
+  if (presenceHeartbeat) clearInterval(presenceHeartbeat);
+  presenceHeartbeat = setInterval(() => {
+    if (auth.currentUser) {
+      statusRef.update({ online: true, lastSeen: firebase.database.ServerValue.TIMESTAMP });
+    }
+  }, 60000);
 }
 
 function timeAgoShort(ts) {
@@ -1074,11 +1083,15 @@ function timeAgoShort(ts) {
   return Math.floor(h / 24) + " d. atpakaļ";
 }
 
+const STALE_MS = 2.5 * 60 * 1000; // 2.5 minutes
+
 function renderOnlineStatus(data, elId) {
   const el = document.getElementById(elId);
   if (!el) return;
   if (!data || data.hideOnline) { el.innerHTML = ""; return; }
-  if (data.online) {
+  const stale = data.lastSeen && (Date.now() - data.lastSeen) > STALE_MS;
+  const isOnline = data.online && !stale;
+  if (isOnline) {
     el.innerHTML = "<span class=\"online-dot\"></span><span class=\"online-status-text\">Tiešsaistē</span>";
   } else {
     const t = data.lastSeen ? timeAgoShort(data.lastSeen) : "";
@@ -2061,7 +2074,16 @@ document.addEventListener('click', e => {
     dropdown.classList.remove('open');
   }
 });
-function handleLogout() { auth.signOut().then(() => location.reload()); }
+function handleLogout() {
+  const uid = auth.currentUser?.uid;
+  if (presenceHeartbeat) { clearInterval(presenceHeartbeat); presenceHeartbeat = null; }
+  const finish = () => auth.signOut().then(() => location.reload());
+  if (uid) {
+    database.ref("status/" + uid).set({ online: false, lastSeen: firebase.database.ServerValue.TIMESTAMP }).then(finish).catch(finish);
+  } else {
+    finish();
+  }
+}
 
 // --- BLOG FEED ---
 let feedPhotos = []; // array of base64 strings
