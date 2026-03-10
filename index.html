@@ -1059,16 +1059,21 @@ let presenceHeartbeat = null;
 
 function initPresence(uid) {
   const statusRef = database.ref("status/" + uid);
+  const getStatusPayload = (online) => ({
+    online,
+    lastSeen: firebase.database.ServerValue.TIMESTAMP,
+    hideOnline: userProfile?.hideOnline || false
+  });
   database.ref(".info/connected").on("value", snap => {
     if (!snap.val()) return;
-    statusRef.onDisconnect().set({ online: false, lastSeen: firebase.database.ServerValue.TIMESTAMP });
-    statusRef.update({ online: true, lastSeen: firebase.database.ServerValue.TIMESTAMP });
+    statusRef.onDisconnect().set(getStatusPayload(false));
+    statusRef.update(getStatusPayload(true));
   });
   // Heartbeat every 60s to keep lastSeen fresh
   if (presenceHeartbeat) clearInterval(presenceHeartbeat);
   presenceHeartbeat = setInterval(() => {
     if (auth.currentUser) {
-      statusRef.update({ online: true, lastSeen: firebase.database.ServerValue.TIMESTAMP });
+      statusRef.update(getStatusPayload(true));
     }
   }, 60000);
 }
