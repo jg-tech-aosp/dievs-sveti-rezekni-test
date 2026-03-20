@@ -662,18 +662,15 @@
       border-left:3px solid var(--accent); padding:4px 8px; margin-bottom:5px;
       border-radius:0 6px 6px 0; background:rgba(0,122,255,0.10);
       font-size:0.75rem; opacity:0.85; max-width:100%;
-      overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+      overflow:hidden; word-break:break-word;
     }
     .reply-quote-name { font-weight:700; color:var(--accent); margin-right:4px; }
     .reply-btn {
-      background:none; border:none; color:var(--text-main); opacity:0;
-      cursor:pointer; font-size:0.85rem; padding:2px 6px; border-radius:6px;
-      transition:opacity 0.15s, background 0.15s; flex-shrink:0;
-      line-height:1; display:flex; align-items:center;
+      background:none; border:none; color:var(--text-main); opacity:0.4;
+      cursor:pointer; font-size:0.75rem; padding:0 4px; border-radius:4px;
+      transition:opacity 0.15s; vertical-align:middle; line-height:1;
     }
-    .dm-bubble-wrap:hover .reply-btn { opacity:0.55; }
-    .reply-btn:hover { opacity:1 !important; background:var(--input-bg); }
-    @media (hover:none) { .reply-btn { opacity:0.4; } }
+    .reply-btn:hover { opacity:1; background:var(--input-bg); }
   </style>
 </head>
 <body>
@@ -1928,14 +1925,8 @@ function openGroupChat(gid, name) {
         const textHTML = msg.text ? `<div class="dm-bubble ${isMine ? 'sent' : 'received'}">${quoteHTML}${msg.text}</div>` : (quoteHTML ? `<div class="dm-bubble ${isMine ? 'sent' : 'received'}">${quoteHTML}</div>` : '');
         const photoHTML = msg.photo ? `<img src="${msg.photo}" onclick="openLightbox(this.src)" style="max-width:200px; border-radius:12px; margin-top:${msg.text ? '4px' : '0'}; cursor:zoom-in; display:block;">` : '';
         const replySnap = { senderName: msg.senderName, text: msg.text };
-        wrap.style.cssText = 'display:flex;flex-direction:row;align-items:flex-end;gap:4px;';
-        wrap.innerHTML = `
-          ${isMine ? `<button class="reply-btn" onclick='setGrpReply(${JSON.stringify(replySnap)})'>↩</button>` : ''}
-          <div style="display:flex;flex-direction:column;${isMine ? 'align-items:flex-end;' : 'align-items:flex-start;'}min-width:0;max-width:calc(100% - 28px);">
-            ${nameLabel}${textHTML}${photoHTML}
-            <div class="dm-bubble-meta">${timeAgo(msg.timestamp)}</div>
-          </div>
-          ${!isMine ? `<button class="reply-btn" onclick='setGrpReply(${JSON.stringify(replySnap)})'>↩</button>` : ''}
+        wrap.innerHTML = `${nameLabel}${textHTML}${photoHTML}
+          <div class="dm-bubble-meta">${timeAgo(msg.timestamp)} <button class="reply-btn" onclick='setGrpReply(${JSON.stringify(replySnap)})'>↩</button></div>
         `;
         container.appendChild(wrap);
       });
@@ -3066,15 +3057,9 @@ function openDMChat() {
         const receipt = isMine ? `<span style="font-size:0.65rem; opacity:0.5; margin-top:2px; display:block; text-align:right;">${msg.read ? '✓✓' : '✓'}</span>` : '';
         const replyBtnPos = isMine ? 'left' : 'right';
         const replySnap = { senderName: msg.senderName || (isMine ? (userProfile?.username||'Tu') : currentDMOtherName), text: msg.text };
-        wrap.style.cssText = 'display:flex;flex-direction:row;align-items:flex-end;gap:4px;';
-        wrap.innerHTML = `
-          ${isMine ? `<button class="reply-btn" onclick='setDMReply(${JSON.stringify(replySnap)})'>↩</button>` : ''}
-          <div style="display:flex;flex-direction:column;${isMine ? 'align-items:flex-end;' : 'align-items:flex-start;'}min-width:0;max-width:calc(100% - 28px);">
-            ${textHTML}${photoHTML}
-            <div class="dm-bubble-meta">${isMine ? 'Tu' : msg.senderName} · ${timeAgo(msg.timestamp)}</div>
-            ${receipt}
-          </div>
-          ${!isMine ? `<button class="reply-btn" onclick='setDMReply(${JSON.stringify(replySnap)})'>↩</button>` : ''}
+        wrap.innerHTML = `${textHTML}${photoHTML}
+          <div class="dm-bubble-meta">${isMine ? 'Tu' : msg.senderName} · ${timeAgo(msg.timestamp)} <button class="reply-btn" onclick='setDMReply(${JSON.stringify(replySnap)})'>↩</button></div>
+          ${receipt}
         `;
         container.appendChild(wrap);
       });
@@ -3093,7 +3078,7 @@ let dmPhotoBase64 = null;
 function buildReplyQuote(replyTo) {
   if (!replyTo) return '';
   const preview = replyTo.text ? replyTo.text.slice(0, 60) + (replyTo.text.length > 60 ? '…' : '') : '📷 Foto';
-  return `<div class="reply-quote"><span class="reply-quote-name">${replyTo.senderName}</span>${preview}</div>`;
+  return `<div class="reply-quote"><span class="reply-quote-name">${replyTo.senderName}</span><br>${preview}</div>`;
 }
 
 
