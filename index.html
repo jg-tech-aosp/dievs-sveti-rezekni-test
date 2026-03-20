@@ -647,6 +647,35 @@
     .sc-mr6 { margin-right:6px; }
     .sc-mr8-noshrink { margin-right:8px;flex-shrink:0; }
     .sc-text-xs-muted { font-size:0.75rem;opacity:0.5; }
+  
+    /* === REPLY FEATURE === */
+    .reply-bar {
+      display:none; align-items:center; gap:8px; padding:8px 12px;
+      background:var(--input-bg); border-top:1px solid var(--border);
+      border-left:3px solid var(--accent); flex-shrink:0; font-size:0.8rem;
+    }
+    .reply-bar.active { display:flex; }
+    .reply-bar-text { flex:1; opacity:0.8; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .reply-bar-name { font-weight:700; color:var(--accent); margin-right:4px; }
+    .reply-bar-cancel { background:none; border:none; color:var(--text-main); opacity:0.5; cursor:pointer; font-size:1rem; padding:0 4px; flex-shrink:0; }
+    .reply-quote {
+      border-left:3px solid var(--accent); padding:4px 8px; margin-bottom:5px;
+      border-radius:0 6px 6px 0; background:rgba(0,122,255,0.10);
+      font-size:0.75rem; opacity:0.85; max-width:100%;
+      overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+    }
+    .reply-quote-name { font-weight:700; color:var(--accent); margin-right:4px; }
+    .reply-btn {
+      background:none; border:none; color:var(--text-main); opacity:0;
+      cursor:pointer; font-size:0.85rem; padding:2px 6px; border-radius:6px;
+      transition:opacity 0.15s, background 0.15s; flex-shrink:0;
+      line-height:1; display:flex; align-items:center;
+    }
+    .dm-bubble-wrap:hover .reply-btn,
+    .dm-bubble-wrap:focus-within .reply-btn { opacity:0.55; }
+    .reply-btn:hover { opacity:1 !important; background:var(--input-bg); }
+    /* on touch devices always show reply btn (no hover) */
+    @media (hover:none) { .reply-btn { opacity:0.45; } }
   </style>
 </head>
 <body>
@@ -872,6 +901,10 @@
       </div>
     </div>
     <div class="sc-scroll-col-gap" id="dm-messages"></div>
+    <div class="reply-bar" id="dm-reply-bar">
+      <span class="reply-bar-text"><span class="reply-bar-name"></span></span>
+      <button class="reply-bar-cancel" onclick="clearDMReply()">✕</button>
+    </div>
     <div class="sc-mt8-noshrink">
       <div class="sc-hidden-rel-mb6" id="dm-photo-preview-wrap">
         <img class="sc-img-preview" id="dm-photo-preview">
@@ -937,6 +970,10 @@
       </div>
     </div>
     <div class="sc-scroll-col-gap" id="group-messages"></div>
+    <div class="reply-bar" id="grp-reply-bar">
+      <span class="reply-bar-text"><span class="reply-bar-name"></span></span>
+      <button class="reply-bar-cancel" onclick="clearGrpReply()">✕</button>
+    </div>
     <div class="sc-mt8-noshrink">
       <div class="sc-hidden-rel-mb6" id="group-photo-preview-wrap">
         <img class="sc-img-preview" id="group-photo-preview">
@@ -1883,9 +1920,17 @@ function openGroupChat(gid, name) {
           ? `<img src="${msg.senderPhoto}" class="user-avatar-sm sc-mr5" alt="${msg.senderName}" onerror="this.style.display='none'">`
           : `<span class="user-avatar-sm sc-mr5">${(msg.senderName||'?')[0].toUpperCase()}</span>`) : '';
         const nameLabel = !isMine ? `<div style="font-size:0.72rem;font-weight:700;opacity:0.6;margin-bottom:2px;display:flex;align-items:center;">${senderAvatar}${msg.senderName}</div>` : '';
-        const textHTML = msg.text ? `<div class="dm-bubble ${isMine ? 'sent' : 'received'}">${msg.text}</div>` : '';
+        const quoteHTML = buildReplyQuote(msg.replyTo);
+        const textHTML = msg.text ? `<div class="dm-bubble ${isMine ? 'sent' : 'received'}">${quoteHTML}${msg.text}</div>` : (quoteHTML ? `<div class="dm-bubble ${isMine ? 'sent' : 'received'}">${quoteHTML}</div>` : '');
         const photoHTML = msg.photo ? `<img src="${msg.photo}" onclick="openLightbox(this.src)" style="max-width:200px; border-radius:12px; margin-top:${msg.text ? '4px' : '0'}; cursor:zoom-in; display:block;">` : '';
-        wrap.innerHTML = `${nameLabel}${textHTML}${photoHTML}<div class="dm-bubble-meta">${timeAgo(msg.timestamp)}</div>`;
+        const replySnap = { senderName: msg.senderName, text: msg.text };
+        wrap.innerHTML = `
+          <button class="reply-btn" style="order:${isMine?0:2}" onclick='setGrpReply(${JSON.stringify(replySnap)})'>↩</button>
+          <div style="order:1;display:flex;flex-direction:column;flex:1;min-width:0;">
+            ${nameLabel}${textHTML}${photoHTML}
+            <div class="dm-bubble-meta">${timeAgo(msg.timestamp)}</div>
+          </div>
+        `;
         container.appendChild(wrap);
       });
       container.scrollTop = container.scrollHeight;
@@ -1920,7 +1965,7 @@ async function sendGroupMessage() {
   const myName = userProfile?.username || auth.currentUser.displayName || 'Lietotājs';
   const ts = Date.now();
   await database.ref(`group_messages/${currentGroupId}`).push({
-    senderUID: myUID, senderName: myName, senderPhoto: userProfile?.photoURL || null, text: text || null, photo: groupPhotoBase64 || null, timestamp: ts
+    senderUID: myUID, senderName: myName, senderPhoto: userProfile?.photoURL || null, text: text || null, photo: groupPhotoBase64 || null, timestamp: ts, replyTo: grpReplyTo || null
   });
   // Update user_groups for all members
   const membersSnap = await database.ref(`group_members/${currentGroupId}`).once('value');
@@ -1938,6 +1983,7 @@ async function sendGroupMessage() {
   await database.ref().update(updates);
   input.value = '';
   clearGroupPhoto();
+  clearGrpReply();
 }
 
 function handleGroupPhotoSelect(event) {
@@ -3008,13 +3054,19 @@ function openDMChat() {
         const isMine = msg.senderUID === auth.currentUser.uid;
         const wrap = document.createElement('div');
         wrap.className = `dm-bubble-wrap ${isMine ? 'sent' : 'received'}`;
-        const textHTML = msg.text ? `<div class="dm-bubble ${isMine ? 'sent' : 'received'}">${msg.text}</div>` : '';
+        const quoteHTML = buildReplyQuote(msg.replyTo);
+        const textHTML = msg.text ? `<div class="dm-bubble ${isMine ? 'sent' : 'received'}">${quoteHTML}${msg.text}</div>` : (quoteHTML ? `<div class="dm-bubble ${isMine ? 'sent' : 'received'}">${quoteHTML}</div>` : '');
         const photoHTML = msg.photo ? `<img src="${msg.photo}" onclick="openLightbox(this.src)" style="max-width:200px; border-radius:12px; margin-top:${msg.text ? '4px' : '0'}; cursor:zoom-in; display:block;">` : '';
         const receipt = isMine ? `<span style="font-size:0.65rem; opacity:0.5; margin-top:2px; display:block; text-align:right;">${msg.read ? '✓✓' : '✓'}</span>` : '';
+        const replyBtnPos = isMine ? 'left' : 'right';
+        const replySnap = { senderName: msg.senderName || (isMine ? (userProfile?.username||'Tu') : currentDMOtherName), text: msg.text };
         wrap.innerHTML = `
-          ${textHTML}${photoHTML}
-          <div class="dm-bubble-meta">${isMine ? 'Tu' : msg.senderName} · ${timeAgo(msg.timestamp)}</div>
-          ${receipt}
+          <button class="reply-btn" style="order:${isMine?0:2}" onclick='setDMReply(${JSON.stringify(replySnap)})'>↩</button>
+          <div style="order:1;display:flex;flex-direction:column;flex:1;min-width:0;">
+            ${textHTML}${photoHTML}
+            <div class="dm-bubble-meta">${isMine ? 'Tu' : msg.senderName} · ${timeAgo(msg.timestamp)}</div>
+            ${receipt}
+          </div>
         `;
         container.appendChild(wrap);
       });
@@ -3024,7 +3076,18 @@ function openDMChat() {
   });
 }
 
+
+// --- REPLY STATE ---
+let dmReplyTo = null;    // { senderName, text } | null
+let grpReplyTo = null;   // { senderName, text } | null
 let dmPhotoBase64 = null;
+
+function buildReplyQuote(replyTo) {
+  if (!replyTo) return '';
+  const preview = replyTo.text ? replyTo.text.slice(0, 60) + (replyTo.text.length > 60 ? '…' : '') : '📷 Foto';
+  return `<div class="reply-quote"><span class="reply-quote-name">${replyTo.senderName}</span>${preview}</div>`;
+}
+
 
 function handleDMPhotoSelect(event) {
   const file = event.target.files[0];
@@ -3065,7 +3128,7 @@ async function sendDM() {
   const myUID = auth.currentUser.uid;
   const myName = userProfile?.username || auth.currentUser.displayName || 'Lietotājs';
   await database.ref(`dms/${currentDMConvId}/messages`).push({
-    senderUID: myUID, senderName: myName, senderPhoto: userProfile?.photoURL || null, text: text || null, photo: dmPhotoBase64 || null, timestamp: Date.now(), read: false
+    senderUID: myUID, senderName: myName, senderPhoto: userProfile?.photoURL || null, text: text || null, photo: dmPhotoBase64 || null, timestamp: Date.now(), read: false, replyTo: dmReplyTo || null
   });
   const preview = text || (dmPhotoBase64 ? '📷 Foto' : '');
   const ts = Date.now();
@@ -3077,8 +3140,39 @@ async function sendDM() {
   });
   input.value = '';
   clearDMPhoto();
+  clearDMReply();
 }
 
+
+// --- REPLY HELPERS ---
+function setDMReply(snap) {
+  dmReplyTo = snap;
+  const bar = document.getElementById('dm-reply-bar');
+  if (!bar) return;
+  bar.querySelector('.reply-bar-name').textContent = snap.senderName;
+  bar.querySelector('.reply-bar-text').textContent = snap.text ? snap.text.slice(0,80) : '📷 Foto';
+  bar.classList.add('active');
+  document.getElementById('dm-input').focus();
+}
+function clearDMReply() {
+  dmReplyTo = null;
+  const bar = document.getElementById('dm-reply-bar');
+  if (bar) bar.classList.remove('active');
+}
+function setGrpReply(snap) {
+  grpReplyTo = snap;
+  const bar = document.getElementById('grp-reply-bar');
+  if (!bar) return;
+  bar.querySelector('.reply-bar-name').textContent = snap.senderName;
+  bar.querySelector('.reply-bar-text').textContent = snap.text ? snap.text.slice(0,80) : '📷 Foto';
+  bar.classList.add('active');
+  document.getElementById('group-input').focus();
+}
+function clearGrpReply() {
+  grpReplyTo = null;
+  const bar = document.getElementById('grp-reply-bar');
+  if (bar) bar.classList.remove('active');
+}
 function closeDM() {
   if (dmStatusListener) { dmStatusListener(); dmStatusListener = null; }
   if (dmListener) { database.ref(`dms/${currentDMConvId}/messages`).off('value', dmListener); dmListener = null; }
