@@ -655,8 +655,8 @@
       border-left:3px solid var(--accent); flex-shrink:0; font-size:0.8rem;
     }
     .reply-bar.active { display:flex; }
-    .reply-bar-text { flex:1; opacity:0.8; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
-    .reply-bar-name { font-weight:700; color:var(--accent); margin-right:4px; }
+    .reply-bar-text { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:0.8rem; opacity:0.8; }
+    .reply-bar-name { font-weight:700; color:var(--accent); }
     .reply-bar-cancel { background:none; border:none; color:var(--text-main); opacity:0.5; cursor:pointer; font-size:1rem; padding:0 4px; flex-shrink:0; }
     .reply-quote {
       border-left:3px solid var(--accent); padding:4px 8px; margin-bottom:5px;
@@ -902,7 +902,10 @@
     </div>
     <div class="sc-scroll-col-gap" id="dm-messages"></div>
     <div class="reply-bar" id="dm-reply-bar">
-      <span class="reply-bar-text"><span class="reply-bar-name"></span></span>
+      <div class="reply-bar-text">
+        <span class="reply-bar-name" id="dm-reply-name"></span>
+        <span id="dm-reply-preview"></span>
+      </div>
       <button class="reply-bar-cancel" onclick="clearDMReply()">✕</button>
     </div>
     <div class="sc-mt8-noshrink">
@@ -971,7 +974,10 @@
     </div>
     <div class="sc-scroll-col-gap" id="group-messages"></div>
     <div class="reply-bar" id="grp-reply-bar">
-      <span class="reply-bar-text"><span class="reply-bar-name"></span></span>
+      <div class="reply-bar-text">
+        <span class="reply-bar-name" id="grp-reply-name"></span>
+        <span id="grp-reply-preview"></span>
+      </div>
       <button class="reply-bar-cancel" onclick="clearGrpReply()">✕</button>
     </div>
     <div class="sc-mt8-noshrink">
@@ -3149,8 +3155,8 @@ function setDMReply(snap) {
   dmReplyTo = snap;
   const bar = document.getElementById('dm-reply-bar');
   if (!bar) return;
-  bar.querySelector('.reply-bar-name').textContent = snap.senderName;
-  bar.querySelector('.reply-bar-text').textContent = snap.text ? snap.text.slice(0,80) : '📷 Foto';
+  document.getElementById('dm-reply-name').textContent = snap.senderName + ': ';
+  document.getElementById('dm-reply-preview').textContent = snap.text ? snap.text.slice(0,80) : '📷 Foto';
   bar.classList.add('active');
   document.getElementById('dm-input').focus();
 }
@@ -3163,8 +3169,8 @@ function setGrpReply(snap) {
   grpReplyTo = snap;
   const bar = document.getElementById('grp-reply-bar');
   if (!bar) return;
-  bar.querySelector('.reply-bar-name').textContent = snap.senderName;
-  bar.querySelector('.reply-bar-text').textContent = snap.text ? snap.text.slice(0,80) : '📷 Foto';
+  document.getElementById('grp-reply-name').textContent = snap.senderName + ': ';
+  document.getElementById('grp-reply-preview').textContent = snap.text ? snap.text.slice(0,80) : '📷 Foto';
   bar.classList.add('active');
   document.getElementById('group-input').focus();
 }
