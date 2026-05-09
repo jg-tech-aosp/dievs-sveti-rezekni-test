@@ -1,3 +1,3 @@
-# test repo for DSR (Sniegotās ielas)
+# test repo for DSR (Sniegotās ielas) (OBSOLETE)
 wow
 cool
